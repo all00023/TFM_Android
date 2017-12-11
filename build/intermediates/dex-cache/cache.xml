@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        is-multidex="false"
+        jar="D:\OneDrive\TFM\Examples\tango-examples-c\cpp_example_util\app\build\intermediates\bundles\default\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="25.0.0"
+        sha1="172bee05b4334bd5466bc50de0963d2a064bd1f2">
+        <dex dex="D:\OneDrive\TFM\Examples\tango-examples-c\Prueba_cpp\app\build\intermediates\pre-dexed\debug\classes_9164d5b160c7474157694b7f4b1bcb9481cf6912.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="C:\Users\Adrian\Desktop\TFM\Examples\tango-examples-c\cpp_rgb_depth_sync_example\app\build\intermediates\exploded-aar\cpp_rgb_depth_sync_example\cpp_example_util\unspecified\jars\classes.jar"
+        jumboMode="false"
+        optimize="true"
+        revision="21.1.2"
+        sha1="172bee05b4334bd5466bc50de0963d2a064bd1f2">
+        <dex dex="C:\Users\Adrian\Desktop\TFM\Examples\tango-examples-c\cpp_rgb_depth_sync_example\app\build\intermediates\pre-dexed\debug\cpp_rgb_depth_sync_example-cpp_example_util-unspecified_fa8aee6e672998eb6765eb953250b43371ffc36a.jar" />
+    </item>
+
+</items>
