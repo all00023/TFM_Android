@@ -3,10 +3,15 @@
 //
 #include "rgb-depth-sync/Segmentacion.h"
 
-void Segmentacion::void mapear(vector<Punto3D*> &puntos, const TangoPointCloud *nube, int w, int h) {
+void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h) {
+
+    int wOrig = w*2;
+    int hOrig = h*2;
 
     int point_cloud_size = nube->num_points;
     for (int i = 0; i < point_cloud_size; ++i) {
+
+
         float x = nube->points[i][0];
         float y = nube->points[i][1];
         float z = nube->points[i][2];
@@ -15,78 +20,128 @@ void Segmentacion::void mapear(vector<Punto3D*> &puntos, const TangoPointCloud *
         // (depth image timestamp).
         glm::vec4 depth_t0_point = glm::vec4(x, y, z, 1.0);
 
-        int pixel_x, pixel_y;
         // get the coordinate on image plane.
-        pixel_x = static_cast<int>((rgb_camera_intrinsics_.fx) *
-                                   (color_t1_point.x / color_t1_point.z) +
-                                   rgb_camera_intrinsics_.cx);
+        int pixel_x, pixel_y;
+        pixel_x = static_cast<int>((intrinsics.fx) * (depth_t0_point.x / depth_t0_point.z) + intrinsics.cx);
+        pixel_y = static_cast<int>((intrinsics.fy) * (depth_t0_point.y / depth_t0_point.z) + intrinsics.cy);
 
-        pixel_y = static_cast<int>((rgb_camera_intrinsics_.fy) *
-                                   (color_t1_point.y / color_t1_point.z) +
-                                   rgb_camera_intrinsics_.cy);
+        int posicion = (pixel_x % 2) + ((pixel_y % 2) * 2);
 
-        // Color value is the GL_LUMINANCE value used for displaying the depth
-        // image.
-        // We can query for depth value in mm from grayscale image buffer by
-        // getting a `pixel_value` at (pixel_x,pixel_y) and calculating
-        // pixel_value * (kMaxDepthDistance / USHRT_MAX)
-        float depth_value = color_t0_point.z;
-        uint8_t grayscale_value =
-                (color_t1_point.z * kMeterToMillimeter) * UCHAR_MAX / kMaxDepthDistance;
+        if (pixel_x >= 0 && pixel_x < wOrig && pixel_y >= 0 && pixel_y < hOrig &&  z > 0) {
+
+            Punto3D *punto = &puntos[(pixel_y / 2) * w + (pixel_x / 2)];
+
+            if (posicion < punto->getPosicionOriginal()) {
+                punto->addPuntoPosicion(x, y, z, posicion);
+            }
+        }
 
     }
 
+    for (int i = 0; i < puntos.size(); i++) {
+        puntos[i].calcularDepth();
+    }
+
+//    int point_cloud_size = nube->num_points;
+//    for (int i = 0; i < point_cloud_size; ++i) {
+//        float x = nube->points[i][0];
+//        float y = nube->points[i][1];
+//        float z = nube->points[i][2];
+//
+//        // depth_t0_point is the point in depth camera frame on timestamp t0.
+//        // (depth image timestamp).
+//        glm::vec4 depth_t0_point = glm::vec4(x, y, z, 1.0);
+//
+//        // get the coordinate on image plane.
+//        int pixel_x, pixel_y;
+//        pixel_x = static_cast<int>((intrinsics.fx) * (depth_t0_point.x / depth_t0_point.z) + intrinsics.cx);
+//        pixel_y = static_cast<int>((intrinsics.fy) * (depth_t0_point.y / depth_t0_point.z) + intrinsics.cy);
+//
+//        Punto3D *punto = &puntos[pixel_y * w + pixel_x];
+//
+//        if (z > 0) {
+//            punto->setValido(true);
+//            punto->setX(x);
+//            punto->setY(y);
+//            punto->setZ(z);
+//            punto->calcularDepth();
+//        } else {
+//            punto->setValido(false);
+//            punto->setX(0);
+//            punto->setY(0);
+//            punto->setZ(0);
+//            punto->setDepth(0);
+//        }
+//
+//        punto->setEtiqueta(0);
+//
+//    }
+
 }
 
-int Segmentacion::procesar(vector<Punto3D *> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, string archivo, set<int> &suelo, set<int> &relevantes) {
+int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes) {
 
-
+    LOGE("1");
     vector<float> integralX = vector<float>(w * h, 0);
     vector<float> integralY = vector<float>(w * h, 0);
     vector<float> integralZ = vector<float>(w * h, 0);
     calcularIntegralX(puntos, integralX, w, h);
     calcularIntegralY(puntos, integralY, w, h);
     calcularIntegralZ(puntos, integralZ, w, h);
+    LOGE("2");
 
     vector<int> vecinos = vector<int>(w * h, 0);
 
     calcularMapaDinamicoDeVecinos(puntos, vecinos, w, h);
+    LOGE("3");
 
     calcularNormales(puntos, w, h, integralX, integralY, integralZ, vecinos);
+    LOGE("4");
 
     vector<int> padres;
     aplicarConnectedComponentsLabeling(puntos, f, padres, w, h);
+    LOGE("5");
 
     vector<int> contadorPuntosEnPadres = vector<int>(padres.size(), 0);
     reducirPadres(puntos, padres, contadorPuntosEnPadres);
+    LOGE("6");
 
     asignarPuntosAPlanos(puntos, planos, contadorPuntosEnPadres);
+    LOGE("7");
 
     borrarPlanosNoValidos(planos);
+    LOGE("8");
 
     extenderPlanos(puntos, w, h);
+    LOGE("9");
 
     //recalcularParametrosDelPlano(planos);
 
     combinarPlanos(planos);
+    LOGE("10");
 
     vector<int> padresDepth;
     vector<int> etiquetasDepth = vector<int>(w * h, 0);
     aplicarConnectedComponentsLabelingDepth(puntos, f2, padresDepth, etiquetasDepth, w, h);
+    LOGE("11");
 
     vector<int> contadorPuntosEnPadresDepth = vector<int>(padresDepth.size(), 0);
     reducirPadresYAplicarEtiquetasDepth(puntos, padresDepth, etiquetasDepth, contadorPuntosEnPadresDepth);
+    LOGE("12");
 
 
     asignarPuntosAElementos(puntos, elementos, contadorPuntosEnPadresDepth);
+    LOGE("13");
     detectarSuelo(planos, suelo);
-    detectarRelevantes(puntos, planos, elementos, suelo, relevantes);
+    LOGE("14");
+    //detectarRelevantes(puntos, planos, elementos, suelo, relevantes);
+    LOGE("15");
 
     return relevantes.size();
 
 }
 
-void Segmentacion::calcularNormales(vector<Punto3D *> &puntos, int w, int h, vector<float> integralX, vector<float> integralY, vector<float> integralZ, vector<int> vecinos) {
+void calcularNormales(vector<Punto3D> &puntos, int w, int h, vector<float> integralX, vector<float> integralY, vector<float> integralZ, vector<int> vecinos) {
 
     //int r = radioNormalIntegral;
 
@@ -96,9 +151,9 @@ void Segmentacion::calcularNormales(vector<Punto3D *> &puntos, int w, int h, vec
             int r = vecinos[j * w + i];
             r = r < 2 ? 2 : r;
 
-            if (puntos[j * w + i]->getValido() && r > 0) {
+            if (puntos[j * w + i].getValido() && r > 0) {
 
-                Punto3D *punto = puntos[j * w + i];
+                Punto3D *punto = &puntos[j * w + i];
 
                 int ipr = (i + r < w) ? i + r : w - 1;
                 int imr = (i - r >= 0) ? i - r : 0;
@@ -131,74 +186,74 @@ void Segmentacion::calcularNormales(vector<Punto3D *> &puntos, int w, int h, vec
                 punto->setNormalValida(true);
 
             } else {
-                puntos[j * w + i]->setNormalValida(false);
+                puntos[j * w + i].setNormalValida(false);
 
             }
         }
     }
 }
 
-void Segmentacion::calcularIntegralX(vector<Punto3D *> &puntos, vector<float> &integral, int w, int h) {
+void calcularIntegralX(vector<Punto3D> &puntos, vector<float> &integral, int w, int h) {
 
     //Primer elemento
-    integral[0] = puntos[0]->getX();
+    integral[0] = puntos[0].getX();
     //Primera fila
     for (int i = 1; i < w; i++) {
-        integral[i] = puntos[i]->getX() + integral[i - 1];
+        integral[i] = puntos[i].getX() + integral[i - 1];
     }
     //Primera columna
     for (int j = 1; j < h; j++) {
-        integral[j * w] = puntos[j * w]->getX() + integral[(j - 1) * w];
+        integral[j * w] = puntos[j * w].getX() + integral[(j - 1) * w];
     }
     //El resto
     for (int i = 1; i < w; i++) {
         for (int j = 1; j < h; j++) {
-            integral[(j * w) + i] = puntos[(j * w) + i]->getX() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
+            integral[(j * w) + i] = puntos[(j * w) + i].getX() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
         }
     }
 }
 
-void Segmentacion::calcularIntegralY(vector<Punto3D *> &puntos, vector<float> &integral, int w, int h) {
+void calcularIntegralY(vector<Punto3D> &puntos, vector<float> &integral, int w, int h) {
 
     //Primer elemento
-    integral[0] = puntos[0]->getY();
+    integral[0] = puntos[0].getY();
     //Primera fila
     for (int i = 1; i < w; i++) {
-        integral[i] = puntos[i]->getY() + integral[i - 1];
+        integral[i] = puntos[i].getY() + integral[i - 1];
     }
     //Primera columna
     for (int j = 1; j < h; j++) {
-        integral[j * w] = puntos[j * w]->getY() + integral[(j - 1) * w];
+        integral[j * w] = puntos[j * w].getY() + integral[(j - 1) * w];
     }
     //El resto
     for (int i = 1; i < w; i++) {
         for (int j = 1; j < h; j++) {
-            integral[(j * w) + i] = puntos[(j * w) + i]->getY() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
+            integral[(j * w) + i] = puntos[(j * w) + i].getY() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
         }
     }
 }
 
-void Segmentacion::calcularIntegralZ(vector<Punto3D *> &puntos, vector<float> &integral, int w, int h) {
+void calcularIntegralZ(vector<Punto3D> &puntos, vector<float> &integral, int w, int h) {
 
     //Primer elemento
-    integral[0] = puntos[0]->getZ();
+    integral[0] = puntos[0].getZ();
     //Primera fila
     for (int i = 1; i < w; i++) {
-        integral[i] = puntos[i]->getZ() + integral[i - 1];
+        integral[i] = puntos[i].getZ() + integral[i - 1];
     }
     //Primera columna
     for (int j = 1; j < h; j++) {
-        integral[j * w] = puntos[j * w]->getZ() + integral[(j - 1) * w];
+        integral[j * w] = puntos[j * w].getZ() + integral[(j - 1) * w];
     }
     //El resto
     for (int i = 1; i < w; i++) {
         for (int j = 1; j < h; j++) {
-            integral[(j * w) + i] = puntos[(j * w) + i]->getZ() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
+            integral[(j * w) + i] = puntos[(j * w) + i].getZ() + integral[(j * w) + (i - 1)] + integral[(j - 1) * w + i] - integral[(j - 1) * w + (i - 1)];
         }
     }
 }
 
-int Segmentacion::calcularMapaDinamicoDeVecinos(vector<Punto3D *> &puntos, vector<int> &vecinos, int w, int h) {
+int calcularMapaDinamicoDeVecinos(vector<Punto3D> &puntos, vector<int> &vecinos, int w, int h) {
     //R(m,n) = min( B(m,n), T(m,n)/sqrt(2))
     vector<pair<int, int>> porProcesar;
     vector<int> distancias = vector<int>(w * h, -1);
@@ -209,16 +264,16 @@ int Segmentacion::calcularMapaDinamicoDeVecinos(vector<Punto3D *> &puntos, vecto
     for (int i = 1; i < (w - 1); i++) {
         for (int j = 1; j < (h - 1); j++) {
 
-            if (puntos[j * w + i]->getValido()) {
+            if (puntos[j * w + i].getValido()) {
                 //Calculamos B
-                int b = sumaBeta + (round(beta * (alfa * puntos[j * w + i]->getDepth() * puntos[j * w + i]->getDepth())));
+                int b = sumaBeta + (round(beta * (alfa * puntos[j * w + i].getDepth() * puntos[j * w + i].getDepth())));
                 vecinos[j * w + i] = b >= 1 ? b : 1;
 
                 //Comprobamos si es un punto para empezar el cálculo de C
-                float threshold = sumaDelta + delta * (alfa * puntos[j * w + i]->getDepth() * puntos[j * w + i]->getDepth());
+                float threshold = sumaDelta + delta * (alfa * puntos[j * w + i].getDepth() * puntos[j * w + i].getDepth());
 
-                if (abs(puntos[j * w + i]->getDepth() - puntos[j * w + (i + 1)]->getDepth()) >= threshold
-                    || abs(puntos[j * w + i]->getDepth() - puntos[(j + 1) * w + i]->getDepth()) >= threshold) {
+                if (abs(puntos[j * w + i].getDepth() - puntos[j * w + (i + 1)].getDepth()) >= threshold
+                    || abs(puntos[j * w + i].getDepth() - puntos[(j + 1) * w + i].getDepth()) >= threshold) {
                     porProcesar.push_back(pair<int, int>(i, j));
                     distancias[j * w + i] = 0;
                     asignados.insert(j * w + i);
@@ -273,7 +328,7 @@ int Segmentacion::calcularMapaDinamicoDeVecinos(vector<Punto3D *> &puntos, vecto
 
     for (int i = 0; i < w * h; i++) {
 
-        if (puntos[i]->getValido() && distancias[i] >= 0) {
+        if (puntos[i].getValido() && distancias[i] >= 0) {
 
             int t = round(distancias[i] / raiz2);
             if (t < vecinos[i])
@@ -289,7 +344,7 @@ int Segmentacion::calcularMapaDinamicoDeVecinos(vector<Punto3D *> &puntos, vecto
 
 }
 
-float Segmentacion::calcularSEnLaIntegral(vector<float> &integral, int w, int h, int m, int n, int r) {
+float calcularSEnLaIntegral(vector<float> &integral, int w, int h, int m, int n, int r) {
 
     //Si el radio es 0(solo el punto), la media es el propio valor;
     if (r == 0) {
@@ -311,7 +366,7 @@ float Segmentacion::calcularSEnLaIntegral(vector<float> &integral, int w, int h,
     }
 }
 
-int Segmentacion::aplicarConnectedComponentsLabeling(vector<Punto3D *> &puntos, bool(*f)(Punto3D *, Punto3D *), vector<int> &padres, int w, int h) {
+int aplicarConnectedComponentsLabeling(vector<Punto3D> &puntos, bool(*f)(Punto3D *, Punto3D *), vector<int> &padres, int w, int h) {
 
     int contador = 1;
 
@@ -319,28 +374,28 @@ int Segmentacion::aplicarConnectedComponentsLabeling(vector<Punto3D *> &puntos, 
     padres.push_back(0);
 
     //Primer pixel
-    if (puntos[0]->getNormalValida()) {
-        puntos[0]->setEtiqueta(contador++);
+    if (puntos[0].getNormalValida()) {
+        puntos[0].setEtiqueta(contador++);
         padres.push_back(0);
     }
     //Primera fila
     for (int i = 1; i < w; i++) {
-        if (puntos[i]->getNormalValida()) {
-            if (puntos[i - 1]->getNormalValida() && (*f)(puntos[i - 1], puntos[i])) {
-                puntos[i]->setEtiqueta(puntos[i - 1]->getEtiqueta());
+        if (puntos[i].getNormalValida()) {
+            if (puntos[i - 1].getNormalValida() && (*f)(&puntos[i - 1], &puntos[i])) {
+                puntos[i].setEtiqueta(puntos[i - 1].getEtiqueta());
             } else {
-                puntos[i]->setEtiqueta(contador++);
+                puntos[i].setEtiqueta(contador++);
                 padres.push_back(0);
             }
         }
     }
     //Primera columna
     for (int j = 1; j < h; j++) {
-        if (puntos[j * w]->getNormalValida()) {
-            if (puntos[(j - 1) * w]->getNormalValida() && (*f)(puntos[(j - 1) * w], puntos[j * w])) {
-                puntos[j * w]->setEtiqueta(puntos[(j - 1) * w]->getEtiqueta());
+        if (puntos[j * w].getNormalValida()) {
+            if (puntos[(j - 1) * w].getNormalValida() && (*f)(&puntos[(j - 1) * w], &puntos[j * w])) {
+                puntos[j * w].setEtiqueta(puntos[(j - 1) * w].getEtiqueta());
             } else {
-                puntos[j * w]->setEtiqueta(contador++);
+                puntos[j * w].setEtiqueta(contador++);
                 padres.push_back(0);
             }
         }
@@ -349,27 +404,27 @@ int Segmentacion::aplicarConnectedComponentsLabeling(vector<Punto3D *> &puntos, 
     for (int i = 1; i < w; i++) {
         for (int j = 1; j < h; j++) {
 
-            if (puntos[(j * w) + i]->getNormalValida()) {
+            if (puntos[(j * w) + i].getNormalValida()) {
 
                 bool igualArriba = false;
                 bool igualIzquierda = false;
 
-                if (puntos[(j * w) + (i - 1)]->getNormalValida() && (*f)(puntos[(j * w) + (i - 1)], puntos[(j * w) + i])) {
+                if (puntos[(j * w) + (i - 1)].getNormalValida() && (*f)(&puntos[(j * w) + (i - 1)], &puntos[(j * w) + i])) {
                     igualIzquierda = true;
                 }
-                if (puntos[((j - 1) * w) + i]->getNormalValida() && (*f)(puntos[((j - 1) * w) + i], puntos[(j * w) + i])) {
+                if (puntos[((j - 1) * w) + i].getNormalValida() && (*f)(&puntos[((j - 1) * w) + i], &puntos[(j * w) + i])) {
                     igualArriba = true;
                 }
 
                 if (igualArriba && igualIzquierda) {
-                    unionEtiquetas(puntos[((j - 1) * w) + i]->getEtiqueta(), puntos[(j * w) + (i - 1)]->getEtiqueta(), padres);
-                    puntos[(j * w) + i]->setEtiqueta(puntos[(j * w) + (i - 1)]->getEtiqueta());
+                    unionEtiquetas(puntos[((j - 1) * w) + i].getEtiqueta(), puntos[(j * w) + (i - 1)].getEtiqueta(), padres);
+                    puntos[(j * w) + i].setEtiqueta(puntos[(j * w) + (i - 1)].getEtiqueta());
                 } else if (igualArriba) {
-                    puntos[(j * w) + i]->setEtiqueta(puntos[((j - 1) * w) + i]->getEtiqueta());
+                    puntos[(j * w) + i].setEtiqueta(puntos[((j - 1) * w) + i].getEtiqueta());
                 } else if (igualIzquierda) {
-                    puntos[(j * w) + i]->setEtiqueta(puntos[(j * w) + (i - 1)]->getEtiqueta());
+                    puntos[(j * w) + i].setEtiqueta(puntos[(j * w) + (i - 1)].getEtiqueta());
                 } else {
-                    puntos[(j * w) + i]->setEtiqueta(contador++);
+                    puntos[(j * w) + i].setEtiqueta(contador++);
                     padres.push_back(0);
                 }
             }
@@ -380,7 +435,7 @@ int Segmentacion::aplicarConnectedComponentsLabeling(vector<Punto3D *> &puntos, 
 
 }
 
-int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &puntos, bool(*f)(Punto3D *, Punto3D *), vector<int> &padres, vector<int> &etiquetas, int w, int h) {
+int aplicarConnectedComponentsLabelingDepth(vector<Punto3D> &puntos, bool(*f)(Punto3D *, Punto3D *), vector<int> &padres, vector<int> &etiquetas, int w, int h) {
 
     int contador = 1;
 
@@ -388,14 +443,14 @@ int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &pun
     padres.push_back(0);
 
     //Primer pixel
-    if (puntos[0]->getEtiqueta() == 0 && puntos[0]->getValido()) {
+    if (puntos[0].getEtiqueta() == 0 && puntos[0].getValido()) {
         etiquetas[0] = contador++;;
         padres.push_back(0);
     }
     //Primera fila
     for (int i = 1; i < w; i++) {
-        if (puntos[i]->getEtiqueta() == 0 && puntos[i]->getValido()) {
-            if (puntos[i - 1]->getEtiqueta() == 0 && puntos[i - 1]->getValido() && (*f)(puntos[i - 1], puntos[i])) {
+        if (puntos[i].getEtiqueta() == 0 && puntos[i].getValido()) {
+            if (puntos[i - 1].getEtiqueta() == 0 && puntos[i - 1].getValido() && (*f)(&puntos[i - 1], &puntos[i])) {
                 etiquetas[i] = etiquetas[i - 1];
             } else {
                 etiquetas[i] = contador++;
@@ -405,8 +460,8 @@ int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &pun
     }
     //Primera columna
     for (int j = 1; j < h; j++) {
-        if (puntos[j * w]->getEtiqueta() == 0 && puntos[j * w]->getValido()) {
-            if (puntos[(j - 1) * w]->getEtiqueta() == 0 && puntos[(j - 1) * w]->getValido() && (*f)(puntos[(j - 1) * w], puntos[j * w])) {
+        if (puntos[j * w].getEtiqueta() == 0 && puntos[j * w].getValido()) {
+            if (puntos[(j - 1) * w].getEtiqueta() == 0 && puntos[(j - 1) * w].getValido() && (*f)(&puntos[(j - 1) * w], &puntos[j * w])) {
                 etiquetas[j * w] = etiquetas[(j - 1) * w];
             } else {
                 etiquetas[j * w] = contador++;
@@ -418,15 +473,15 @@ int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &pun
     for (int i = 1; i < w; i++) {
         for (int j = 1; j < h; j++) {
 
-            if (puntos[(j * w) + i]->getEtiqueta() == 0) {
+            if (puntos[(j * w) + i].getEtiqueta() == 0) {
 
                 bool igualArriba = false;
                 bool igualIzquierda = false;
 
-                if (puntos[(j * w) + (i - 1)]->getEtiqueta() == 0 && puntos[(j * w) + (i - 1)]->getValido() && (*f)(puntos[(j * w) + (i - 1)], puntos[(j * w) + i])) {
+                if (puntos[(j * w) + (i - 1)].getEtiqueta() == 0 && puntos[(j * w) + (i - 1)].getValido() && (*f)(&puntos[(j * w) + (i - 1)], &puntos[(j * w) + i])) {
                     igualIzquierda = true;
                 }
-                if (puntos[((j - 1) * w) + i]->getEtiqueta() == 0 && puntos[((j - 1) * w) + i]->getValido() && (*f)(puntos[((j - 1) * w) + i], puntos[(j * w) + i])) {
+                if (puntos[((j - 1) * w) + i].getEtiqueta() == 0 && puntos[((j - 1) * w) + i].getValido() && (*f)(&puntos[((j - 1) * w) + i], &puntos[(j * w) + i])) {
                     igualArriba = true;
                 }
 
@@ -449,15 +504,15 @@ int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &pun
     for (int i = w - 2; i >= 0; i--) {
         for (int j = h - 2; j >= 0; j--) {
 
-            if (puntos[(j * w) + i]->getEtiqueta() == 0) {
+            if (puntos[(j * w) + i].getEtiqueta() == 0) {
 
                 bool igualAbajo = false;
                 bool igualDerecha = false;
 
-                if (puntos[(j * w) + (i + 1)]->getEtiqueta() == 0 && puntos[(j * w) + (i + 1)]->getValido() && (*f)(puntos[(j * w) + (i + 1)], puntos[(j * w) + i])) {
+                if (puntos[(j * w) + (i + 1)].getEtiqueta() == 0 && puntos[(j * w) + (i + 1)].getValido() && (*f)(&puntos[(j * w) + (i + 1)], &puntos[(j * w) + i])) {
                     igualDerecha = true;
                 }
-                if (puntos[((j + 1) * w) + i]->getEtiqueta() == 0 && puntos[((j + 1) * w) + i]->getValido() && (*f)(puntos[((j + 1) * w) + i], puntos[(j * w) + i])) {
+                if (puntos[((j + 1) * w) + i].getEtiqueta() == 0 && puntos[((j + 1) * w) + i].getValido() && (*f)(&puntos[((j + 1) * w) + i], &puntos[(j * w) + i])) {
                     igualAbajo = true;
                 }
 
@@ -480,7 +535,7 @@ int Segmentacion::aplicarConnectedComponentsLabelingDepth(vector<Punto3D *> &pun
 
 }
 
-void Segmentacion::unionEtiquetas(int et1, int et2, vector<int> &padres) {
+void unionEtiquetas(int et1, int et2, vector<int> &padres) {
 
     while (padres[et1] != 0) et1 = padres[et1];
     while (padres[et2] != 0) et2 = padres[et2];
@@ -488,7 +543,7 @@ void Segmentacion::unionEtiquetas(int et1, int et2, vector<int> &padres) {
 
 }
 
-int Segmentacion::reducirPadres(vector<Punto3D *> &puntos, vector<int> &padres, vector<int> &contadorPuntos) {
+int reducirPadres(vector<Punto3D> &puntos, vector<int> &padres, vector<int> &contadorPuntos) {
 
     //Calculamos el padre raiz de cada etiqueta
     for (int i = 1; i < padres.size(); i++) {
@@ -502,18 +557,18 @@ int Segmentacion::reducirPadres(vector<Punto3D *> &puntos, vector<int> &padres, 
     //Sustituimos la etiqueta por la raiz padre de todos los puntos
     for (int i = 0; i < puntos.size(); i++) {
 
-        if (puntos[i]->getValido() && padres[puntos[i]->getEtiqueta()] != 0) {
-            puntos[i]->setEtiqueta(padres[puntos[i]->getEtiqueta()]);
+        if (puntos[i].getValido() && padres[puntos[i].getEtiqueta()] != 0) {
+            puntos[i].setEtiqueta(padres[puntos[i].getEtiqueta()]);
         }
 
-        contadorPuntos[puntos[i]->getEtiqueta()] = contadorPuntos[puntos[i]->getEtiqueta()] + 1;
+        contadorPuntos[puntos[i].getEtiqueta()] = contadorPuntos[puntos[i].getEtiqueta()] + 1;
 
     }
 
     //Marcamos como etiqueta 0 a todos las etiquetas que tengan menos de minPuntos
     for (int i = 1; i < puntos.size(); i++) {
-        if (puntos[i]->getValido() && minPuntos >= contadorPuntos[puntos[i]->getEtiqueta()]) {
-            puntos[i]->setEtiqueta(0);
+        if (puntos[i].getValido() && minPuntos >= contadorPuntos[puntos[i].getEtiqueta()]) {
+            puntos[i].setEtiqueta(0);
         }
     }
 
@@ -528,7 +583,7 @@ int Segmentacion::reducirPadres(vector<Punto3D *> &puntos, vector<int> &padres, 
     return cont2;
 }
 
-int Segmentacion::reducirPadresYAplicarEtiquetasDepth(vector<Punto3D *> &puntos, vector<int> &padres, vector<int> &etiquetas, vector<int> &contadorPuntos) {
+int reducirPadresYAplicarEtiquetasDepth(vector<Punto3D> &puntos, vector<int> &padres, vector<int> &etiquetas, vector<int> &contadorPuntos) {
 
     //Calculamos el padre raiz de cada etiqueta
     for (int i = 1; i < padres.size(); i++) {
@@ -544,10 +599,10 @@ int Segmentacion::reducirPadresYAplicarEtiquetasDepth(vector<Punto3D *> &puntos,
 
         if (etiquetas[i] != 0) {
             if (padres[etiquetas[i]] != 0) {
-                puntos[i]->setEtiqueta(-padres[etiquetas[i]]);
+                puntos[i].setEtiqueta(-padres[etiquetas[i]]);
                 contadorPuntos[padres[etiquetas[i]]] = contadorPuntos[padres[etiquetas[i]]] + 1;
             } else {
-                puntos[i]->setEtiqueta(-etiquetas[i]);
+                puntos[i].setEtiqueta(-etiquetas[i]);
                 contadorPuntos[etiquetas[i]] = contadorPuntos[etiquetas[i]] + 1;
             }
         }
@@ -559,9 +614,9 @@ int Segmentacion::reducirPadresYAplicarEtiquetasDepth(vector<Punto3D *> &puntos,
     for (int i = 1; i < puntos.size(); i++) {
         if (etiquetas[i] != 0) {
             if (padres[etiquetas[i]] != 0 && minPuntosDepth >= contadorPuntos[padres[etiquetas[i]]]) {
-                puntos[i]->setEtiqueta(0);
+                puntos[i].setEtiqueta(0);
             } else if (padres[etiquetas[i]] == 0 && minPuntosDepth >= contadorPuntos[etiquetas[i]]) {
-                puntos[i]->setEtiqueta(0);
+                puntos[i].setEtiqueta(0);
             }
         }
     }
@@ -577,7 +632,7 @@ int Segmentacion::reducirPadresYAplicarEtiquetasDepth(vector<Punto3D *> &puntos,
     return cont2;
 }
 
-int Segmentacion::asignarPuntosAPlanos(vector<Punto3D *> &puntos, map<int, Plano3D> &planos, vector<int> &contadorPuntos) {
+int asignarPuntosAPlanos(vector<Punto3D> &puntos, map<int, Plano3D> &planos, vector<int> &contadorPuntos) {
 
     for (int i = 1; i < contadorPuntos.size(); i++) {
         if (minPuntos < contadorPuntos[i]) {
@@ -586,13 +641,16 @@ int Segmentacion::asignarPuntosAPlanos(vector<Punto3D *> &puntos, map<int, Plano
     }
 
     for (int i = 0; i < puntos.size(); i++) {
-        if (puntos[i]->getEtiqueta() != 0) {
+        if (puntos[i].getEtiqueta() != 0) {
 
-            map<int, Plano3D>::iterator plano = planos.find(puntos[i]->getEtiqueta());
+            map<int, Plano3D>::iterator plano = planos.find(puntos[i].getEtiqueta());
             if (plano != planos.end()) {
-                (*plano).second.addPunto(puntos[i]);
-                puntos[i]->setPlano(&((*plano).second));
+                (*plano).second.addPunto(&puntos[i]);
+                puntos[i].setPlano(&((*plano).second));
             }
+//            else{
+//                cout << "Etiqueta sin plano " << puntos[i].getEtiqueta() << " " << contadorPuntos[puntos[i].getEtiqueta()] << endl;
+//            }
         }
     }
 
@@ -600,7 +658,7 @@ int Segmentacion::asignarPuntosAPlanos(vector<Punto3D *> &puntos, map<int, Plano
 
 }
 
-int Segmentacion::asignarPuntosAElementos(vector<Punto3D *> &puntos, map<int, Elemento3D> &elementos, vector<int> &contadorPuntos) {
+int asignarPuntosAElementos(vector<Punto3D> &puntos, map<int, Elemento3D> &elementos, vector<int> &contadorPuntos) {
 
     for (int i = 1; i < contadorPuntos.size(); i++) {
         if (minPuntosDepth < contadorPuntos[i]) {
@@ -609,12 +667,12 @@ int Segmentacion::asignarPuntosAElementos(vector<Punto3D *> &puntos, map<int, El
     }
 
     for (int i = 0; i < puntos.size(); i++) {
-        if (puntos[i]->getEtiqueta() < 0) {
+        if (puntos[i].getEtiqueta() < 0) {
 
-            map<int, Elemento3D>::iterator elemento = elementos.find(puntos[i]->getEtiqueta());
+            map<int, Elemento3D>::iterator elemento = elementos.find(puntos[i].getEtiqueta());
             if (elemento != elementos.end()) {
-                (*elemento).second.addPunto(puntos[i]);
-                puntos[i]->setElemento(&((*elemento).second));
+                (*elemento).second.addPunto(&puntos[i]);
+                puntos[i].setElemento(&((*elemento).second));
             } else {
                 //cout << "Etiqueta sin elemento " << puntos[i]->getEtiqueta() << " " << contadorPuntos[puntos[i]->getEtiqueta()] << endl;
             }
@@ -631,7 +689,7 @@ int Segmentacion::asignarPuntosAElementos(vector<Punto3D *> &puntos, map<int, El
 
 }
 
-int Segmentacion::borrarPlanosNoValidos(map<int, Plano3D> &planos) {
+int borrarPlanosNoValidos(map<int, Plano3D> &planos) {
 
     vector<int> borrar;
 
@@ -655,48 +713,48 @@ int Segmentacion::borrarPlanosNoValidos(map<int, Plano3D> &planos) {
 
 }
 
-void Segmentacion::extenderPlanos(vector<Punto3D *> &puntos, int w, int h) {
+void extenderPlanos(vector<Punto3D> &puntos, int w, int h) {
 
     //Primer recorrido abajo e derecha
     for (int i = 0; i < w - 1; i++) {
         for (int j = 0; j < h - 1; j++) {
 
-            if (puntos[(j * w) + i]->getValido() && puntos[(j * w) + i]->getPlano() != NULL) {
+            if (puntos[(j * w) + i].getValido() && puntos[(j * w) + i].getPlano() != NULL) {
 
-                float threshold = sumaDelta2 + delta2 * (alfa * puntos[j * w + i]->getDepth() * puntos[j * w + i]->getDepth());
+                float threshold = sumaDelta2 + delta2 * (alfa * puntos[j * w + i].getDepth() * puntos[j * w + i].getDepth());
 
                 //Derecha
-                if (puntos[(j * w) + (i + 1)]->getValido()) {
+                if (puntos[(j * w) + (i + 1)].getValido()) {
 
-                    if (puntos[(j * w) + (i + 1)]->getPlano() == NULL) {
+                    if (puntos[(j * w) + (i + 1)].getPlano() == NULL) {
 
-                        if (puntos[(j * w) + i]->getPlano()->getDistanciaAPunto(puntos[(j * w) + (i + 1)]) < threshold) {
+                        if (puntos[(j * w) + i].getPlano()->getDistanciaAPunto(&puntos[(j * w) + (i + 1)]) < threshold) {
 
-                            puntos[(j * w) + i]->getPlano()->addPunto(puntos[(j * w) + (i + 1)]);
-                            puntos[(j * w) + (i + 1)]->setPlano(puntos[(j * w) + i]->getPlano());
+                            puntos[(j * w) + i].getPlano()->addPunto(&puntos[(j * w) + (i + 1)]);
+                            puntos[(j * w) + (i + 1)].setPlano(puntos[(j * w) + i].getPlano());
 
                         }
-                    } else if (puntos[(j * w) + (i + 1)]->getPlano() != puntos[(j * w) + i]->getPlano()) {
-                        puntos[(j * w) + (i + 1)]->getPlano()->addPlanoColindante(puntos[(j * w) + i]->getPlano());
-                        puntos[(j * w) + i]->getPlano()->addPlanoColindante(puntos[(j * w) + (i + 1)]->getPlano());
+                    } else if (puntos[(j * w) + (i + 1)].getPlano() != puntos[(j * w) + i].getPlano()) {
+                        puntos[(j * w) + (i + 1)].getPlano()->addPlanoColindante(puntos[(j * w) + i].getPlano());
+                        puntos[(j * w) + i].getPlano()->addPlanoColindante(puntos[(j * w) + (i + 1)].getPlano());
                     }
 
                 }
 
                 //Abajo
-                if (puntos[((j + 1) * w) + i]->getValido()) {
+                if (puntos[((j + 1) * w) + i].getValido()) {
 
-                    if (puntos[((j + 1) * w) + i]->getPlano() == NULL) {
+                    if (puntos[((j + 1) * w) + i].getPlano() == NULL) {
 
-                        if (puntos[(j * w) + i]->getPlano()->getDistanciaAPunto(puntos[((j + 1) * w) + i]) < threshold) {
+                        if (puntos[(j * w) + i].getPlano()->getDistanciaAPunto(&puntos[((j + 1) * w) + i]) < threshold) {
 
-                            puntos[(j * w) + i]->getPlano()->addPunto(puntos[((j + 1) * w) + i]);
-                            puntos[((j + 1) * w) + i]->setPlano(puntos[(j * w) + i]->getPlano());
+                            puntos[(j * w) + i].getPlano()->addPunto(&puntos[((j + 1) * w) + i]);
+                            puntos[((j + 1) * w) + i].setPlano(puntos[(j * w) + i].getPlano());
 
                         }
-                    } else if (puntos[((j + 1) * w) + i]->getPlano() != puntos[(j * w) + i]->getPlano()) {
-                        puntos[((j + 1) * w) + i]->getPlano()->addPlanoColindante(puntos[(j * w) + i]->getPlano());
-                        puntos[(j * w) + i]->getPlano()->addPlanoColindante(puntos[((j + 1) * w) + i]->getPlano());
+                    } else if (puntos[((j + 1) * w) + i].getPlano() != puntos[(j * w) + i].getPlano()) {
+                        puntos[((j + 1) * w) + i].getPlano()->addPlanoColindante(puntos[(j * w) + i].getPlano());
+                        puntos[(j * w) + i].getPlano()->addPlanoColindante(puntos[((j + 1) * w) + i].getPlano());
                     }
                 }
             }
@@ -707,42 +765,42 @@ void Segmentacion::extenderPlanos(vector<Punto3D *> &puntos, int w, int h) {
     for (int i = w - 1; i > 0; i--) {
         for (int j = h - 1; j > 0; j--) {
 
-            if (puntos[(j * w) + i]->getValido() && puntos[(j * w) + i]->getPlano() != NULL) {
+            if (puntos[(j * w) + i].getValido() && puntos[(j * w) + i].getPlano() != NULL) {
 
-                float threshold = sumaDelta2 + delta2 * (alfa * puntos[j * w + i]->getDepth() * puntos[j * w + i]->getDepth());
+                float threshold = sumaDelta2 + delta2 * (alfa * puntos[j * w + i].getDepth() * puntos[j * w + i].getDepth());
 
                 //Izquierda
-                if (puntos[(j * w) + (i - 1)]->getValido()) {
+                if (puntos[(j * w) + (i - 1)].getValido()) {
 
-                    if (puntos[(j * w) + (i - 1)]->getPlano() == NULL) {
+                    if (puntos[(j * w) + (i - 1)].getPlano() == NULL) {
 
-                        if (puntos[(j * w) + i]->getPlano()->getDistanciaAPunto(puntos[(j * w) + (i - 1)]) < threshold) {
+                        if (puntos[(j * w) + i].getPlano()->getDistanciaAPunto(&puntos[(j * w) + (i - 1)]) < threshold) {
 
-                            puntos[(j * w) + i]->getPlano()->addPunto(puntos[(j * w) + (i - 1)]);
-                            puntos[(j * w) + (i - 1)]->setPlano(puntos[(j * w) + i]->getPlano());
+                            puntos[(j * w) + i].getPlano()->addPunto(&puntos[(j * w) + (i - 1)]);
+                            puntos[(j * w) + (i - 1)].setPlano(puntos[(j * w) + i].getPlano());
 
                         }
-                    } else if (puntos[(j * w) + (i - 1)]->getPlano() != puntos[(j * w) + i]->getPlano()) {
-                        puntos[(j * w) + (i - 1)]->getPlano()->addPlanoColindante(puntos[(j * w) + i]->getPlano());
-                        puntos[(j * w) + i]->getPlano()->addPlanoColindante(puntos[(j * w) + (i - 1)]->getPlano());
+                    } else if (puntos[(j * w) + (i - 1)].getPlano() != puntos[(j * w) + i].getPlano()) {
+                        puntos[(j * w) + (i - 1)].getPlano()->addPlanoColindante(puntos[(j * w) + i].getPlano());
+                        puntos[(j * w) + i].getPlano()->addPlanoColindante(puntos[(j * w) + (i - 1)].getPlano());
                     }
 
                 }
 
                 //Arriba
-                if (puntos[((j - 1) * w) + i]->getValido()) {
+                if (puntos[((j - 1) * w) + i].getValido()) {
 
-                    if (puntos[((j - 1) * w) + i]->getPlano() == NULL) {
+                    if (puntos[((j - 1) * w) + i].getPlano() == NULL) {
 
-                        if (puntos[(j * w) + i]->getPlano()->getDistanciaAPunto(puntos[((j - 1) * w) + i]) < threshold) {
+                        if (puntos[(j * w) + i].getPlano()->getDistanciaAPunto(&puntos[((j - 1) * w) + i]) < threshold) {
 
-                            puntos[(j * w) + i]->getPlano()->addPunto(puntos[((j - 1) * w) + i]);
-                            puntos[((j - 1) * w) + i]->setPlano(puntos[(j * w) + i]->getPlano());
+                            puntos[(j * w) + i].getPlano()->addPunto(&puntos[((j - 1) * w) + i]);
+                            puntos[((j - 1) * w) + i].setPlano(puntos[(j * w) + i].getPlano());
 
                         }
-                    } else if (puntos[((j - 1) * w) + i]->getPlano() != puntos[(j * w) + i]->getPlano()) {
-                        puntos[((j - 1) * w) + i]->getPlano()->addPlanoColindante(puntos[(j * w) + i]->getPlano());
-                        puntos[(j * w) + i]->getPlano()->addPlanoColindante(puntos[((j - 1) * w) + i]->getPlano());
+                    } else if (puntos[((j - 1) * w) + i].getPlano() != puntos[(j * w) + i].getPlano()) {
+                        puntos[((j - 1) * w) + i].getPlano()->addPlanoColindante(puntos[(j * w) + i].getPlano());
+                        puntos[(j * w) + i].getPlano()->addPlanoColindante(puntos[((j - 1) * w) + i].getPlano());
                     }
                 }
             }
@@ -751,7 +809,7 @@ void Segmentacion::extenderPlanos(vector<Punto3D *> &puntos, int w, int h) {
 
 }
 
-void Segmentacion::recalcularParametrosDelPlano(map<int, Plano3D> &planos) {
+void recalcularParametrosDelPlano(map<int, Plano3D> &planos) {
     map<int, Plano3D>::iterator it = planos.begin();
 
     while (it != planos.end()) {
@@ -760,7 +818,7 @@ void Segmentacion::recalcularParametrosDelPlano(map<int, Plano3D> &planos) {
     }
 }
 
-int Segmentacion::combinarPlanos(map<int, Plano3D> &planos) {
+int combinarPlanos(map<int, Plano3D> &planos) {
 
     vector<int> borrar;
     set<int> planosEliminados;
@@ -824,7 +882,7 @@ int Segmentacion::combinarPlanos(map<int, Plano3D> &planos) {
 
 }
 
-void Segmentacion::detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo) {
+void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo) {
     float yMin = numeric_limits<float>::min();
 
     //Al pasar a Tango hay que comprobar que el suelo es plano en la y
@@ -848,56 +906,62 @@ void Segmentacion::detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo) {
 
 }
 
-void Segmentacion::detectarRelevantes(vector<Punto3D *> puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, set<int> &suelo, set<int> &relevantes) {
+void detectarRelevantes(vector<Punto3D> puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, set<int> &suelo, map<int, int> &relevantes) {
 
     float maxX = max(getMaxX(puntos), abs(getMinX(puntos)));
     float maxY = max(getMaxY(puntos), abs(getMinY(puntos)));
     float maxZ = getMaxZ(puntos);
     int tamImagen = puntos.size();
 
+    //cout << getMaxX(puntos) << " " << getMinX(puntos) << " | " << getMaxY(puntos) << " " << getMinY(puntos) << " | " << getMaxZ(puntos) << " " << getMinZ(puntos) << "" << endl;
+
     vector<int> etiquetas = vector<int>();
     vector<float> puntuaciones = vector<float>();
-
+    LOGE("D1");
     map<int, Plano3D>::iterator itPlano = planos.begin();
     while (itPlano != planos.end()) {
         if (suelo.find((*itPlano).first) == suelo.end()) {
             etiquetas.push_back((*itPlano).first);
-            Elemento3D* ele = &(*itPlano).second;
-            puntuaciones.push_back(puntuarElemento(ele, tamImagen, maxX, maxY, maxZ));
+            puntuaciones.push_back(puntuarElemento(&(*itPlano).second, tamImagen, maxX, maxY, maxZ));
         }
         itPlano++;
     }
 
+    LOGE("D2");
     map<int, Elemento3D>::iterator itElem = elementos.begin();
     while (itElem != elementos.end()) {
         etiquetas.push_back((*itElem).first);
-        Elemento3D* ele = &(*itElem).second;
-        puntuaciones.push_back(puntuarElemento(ele, tamImagen, maxX, maxY, maxZ));
+        puntuaciones.push_back(puntuarElemento(&((*itElem).second), tamImagen, maxX, maxY, maxZ));
         itElem++;
     }
 
+    float auxF;
+    int auxI;
+
+    LOGE("D3");
     for (int i = 0; i < (etiquetas.size() - 1); i++) {
         for (int j = 0; j < etiquetas.size() - i - 1; j++) {
             if (puntuaciones[j] < puntuaciones[j + 1]) {
-                float auxF = puntuaciones[j];
+                auxF = puntuaciones[j];
                 puntuaciones[j] = puntuaciones[j + 1];
                 puntuaciones[j + 1] = auxF;
 
-                int auxI = etiquetas[j];
+                auxI = etiquetas[j];
                 etiquetas[j] = etiquetas[j + 1];
                 etiquetas[j + 1] = auxI;
             }
         }
     }
 
+    LOGE("D4");
     for (int i = 0; i < etiquetas.size() && i < nRelevantes; i++) {
-        relevantes.insert(etiquetas[i]);
+        relevantes.insert(pair<int, int>(etiquetas[i], i));
     }
 
 }
 
 
-float Segmentacion::puntuarElemento(Elemento3D *elemento, int escalaTamaño, float maxX, float maxY, float maxZ) {
+float puntuarElemento(Elemento3D *elemento, int escalaTamaño, float maxX, float maxY, float maxZ) {
 
     float puntosTamaño = ((elemento->getNumeroPuntos() * 1.0) / escalaTamaño) * multiplicadorTamaño;
     float puntosPosicion = ((maxX - abs(elemento->getCX()) / maxX) * (maxY - abs(elemento->getCY()) / maxY)) * multiplicadorPosicion;
@@ -906,7 +970,21 @@ float Segmentacion::puntuarElemento(Elemento3D *elemento, int escalaTamaño, flo
     return puntosTamaño + puntosPosicion + puntosDistancia;
 }
 
-bool Segmentacion::comparadorProfundidad(Punto3D *punto1, Punto3D *punto2) {
+bool comparadorProfundidad1(Punto3D *punto1, Punto3D *punto2) {
+
+    return abs(punto1->getDepth() - punto2->getDepth()) < (umbralProf1);
+
+}
+
+bool comparadorProfundidad2(Punto3D *punto1, Punto3D *punto2) {
+
+    float media = (punto1->getDepth() + punto2->getDepth()) / 2;
+
+    return abs(punto1->getDepth() - punto2->getDepth()) < (media * umbralProf2);
+
+}
+
+bool comparadorProfundidad(Punto3D *punto1, Punto3D *punto2) {
 
     float media = (punto1->getDepth() + punto2->getDepth()) / 2;
     float threshold = sumaDeltaDepth + deltaDepth * (alfa * media * media);
@@ -916,7 +994,7 @@ bool Segmentacion::comparadorProfundidad(Punto3D *punto1, Punto3D *punto2) {
 }
 
 
-bool Segmentacion::comparadorNormales1(Punto3D *punto1, Punto3D *punto2) {
+bool comparadorNormales1(Punto3D *punto1, Punto3D *punto2) {
 
     //cout << punto1->getNDMenosND(punto2) << endl;
 
@@ -924,7 +1002,16 @@ bool Segmentacion::comparadorNormales1(Punto3D *punto1, Punto3D *punto2) {
 
 }
 
-void Segmentacion::colorearPorProfundidad(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+
+bool comparadorNormales(Punto3D *punto1, Punto3D *punto2) {
+
+    //cout << punto1->getNDMenosND(punto2) << endl;
+
+    return punto1->getDotProduct(punto2) > distNormal && punto1->getNDMenosND(punto2) < distRange;
+
+}
+
+/*void colorearPorProfundidad(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
 
     float maxD = getMaxDepth(puntos);
     float umbral = maxD / 8;
@@ -973,9 +1060,9 @@ void Segmentacion::colorearPorProfundidad(vector<Punto3D *> &puntos, vector<unsi
             imagen[i * 3 + 2] = 0;
         }
     }
-}
+}*/
 
-void Segmentacion::colorearPorEtiquetaRelevantes(vector<Punto3D *> &puntos, vector<unsigned char> &imagen, set<int> &suelo, set<int> &relevantes) {
+void colorearPorEtiquetaRelevantes(vector<Punto3D *> &puntos, vector<uint16_t> &imagen, set<int> &suelo, set<int> &relevantes) {
 
     int contador = 0;
     map<int, vector<int>> paleta;
@@ -1016,37 +1103,46 @@ void Segmentacion::colorearPorEtiquetaRelevantes(vector<Punto3D *> &puntos, vect
     }
 }
 
-void Segmentacion::colorearPorEtiqueta(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+void colorearPorEtiqueta(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
 
-    int contador = 0;
-    map<int, vector<int>> paleta;
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
 
-    for (int i = 0; i < puntos.size(); i++) {
+            if (puntos[j * w + i].getValido() && puntos[j * w + i].getEtiqueta() != 0) {
 
-        if (puntos[i]->getValido() && puntos[i]->getEtiqueta() != 0) {
+                uint16_t color;
+                map<int, uint16_t>::iterator it = paleta.find(puntos[j * w + i].getEtiqueta());
 
-            vector<int> color;
-            map<int, vector<int>>::iterator it = paleta.find(puntos[i]->getEtiqueta());
+                if (it != paleta.end()) {
+                    color = it->second;
+                } else {
+                    color = (((rand() % 15) + 10) << 11) + (((rand() % 15) + 10) << 6) + (((rand() % 15) + 10) << 1) + 1;
+                    paleta.insert(pair<int, uint16_t>(puntos[i].getEtiqueta(), color));
+                }
 
-            if (it != paleta.end()) {
-                color = it->second;
-            } else {
-                color = vector<int>(3);
-                color[0] = (rand() % 100) + 100;
-                color[1] = (rand() % 100) + 100;
-                color[2] = (rand() % 100) + 100;
-                paleta.insert(pair<int, vector<int>>(puntos[i]->getEtiqueta(), color));
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+
+//                imagen[2 * j * w + 2 * i] = color;
+//                imagen[2 * j * w + (2 * i + 1)] = color;
+//                imagen[(2 * j + 1) * w + 2 * i] = color;
+//                imagen[(2 * j + 1) * w + (2 * i + 1)] = color;
+//                imagen[j * w + i] = color;
+//                imagen[ j * w + ( i + 1)] = color;
+//                imagen[( j + 1) * w +  i] = color;
+//                imagen[( j + 1) * w + ( i + 1)] = color;
             }
-
-            imagen[i * 3 + 0] = color[0];
-            imagen[i * 3 + 1] = color[1];
-            imagen[i * 3 + 2] = color[2];
         }
     }
 }
 
 
-void Segmentacion::colorearPorNormales(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+void colorearPorNormales(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
 
     for (int i = 0; i < puntos.size(); i++) {
 
@@ -1060,7 +1156,7 @@ void Segmentacion::colorearPorNormales(vector<Punto3D *> &puntos, vector<unsigne
 
 }
 
-void Segmentacion::colorearPorNormalesX(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+void colorearPorNormalesX(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
 
     for (int i = 0; i < puntos.size(); i++) {
 
@@ -1072,7 +1168,7 @@ void Segmentacion::colorearPorNormalesX(vector<Punto3D *> &puntos, vector<unsign
 
 }
 
-void Segmentacion::colorearPorNormalesY(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+void colorearPorNormalesY(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
 
     for (int i = 0; i < puntos.size(); i++) {
 
@@ -1084,7 +1180,7 @@ void Segmentacion::colorearPorNormalesY(vector<Punto3D *> &puntos, vector<unsign
 
 }
 
-void Segmentacion::colorearPorNormalesZ(vector<Punto3D *> &puntos, vector<unsigned char> &imagen) {
+void colorearPorNormalesZ(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
 
     for (int i = 0; i < puntos.size(); i++) {
 
@@ -1096,7 +1192,7 @@ void Segmentacion::colorearPorNormalesZ(vector<Punto3D *> &puntos, vector<unsign
 
 }
 
-void Segmentacion::colorearPorVecinos(vector<int> &vecinos, vector<unsigned char> &imagen) {
+void colorearPorVecinos(vector<int> &vecinos, vector<uint16_t> &imagen) {
 
     for (int i = 0; i < vecinos.size(); i++) {
         imagen[i * 3 + 0] = vecinos[i] * 5;
@@ -1105,7 +1201,7 @@ void Segmentacion::colorearPorVecinos(vector<int> &vecinos, vector<unsigned char
     }
 }
 
-void Segmentacion::convolucionProfundidadGaussiana3(vector<Punto3D *> &puntos, int w, int h) {
+void convolucionProfundidadGaussiana3(vector<Punto3D *> &puntos, int w, int h) {
 
     const double gaussian3[3][3] = {{0.077847, 0.123317, 0.077847},
                                     {0.123317, 0.195346, 0.123317},
@@ -1146,7 +1242,7 @@ void Segmentacion::convolucionProfundidadGaussiana3(vector<Punto3D *> &puntos, i
     }
 }
 
-void Segmentacion::convolucionProfundidadGaussiana5(vector<Punto3D *> &puntos, int w, int h) {
+void convolucionProfundidadGaussiana5(vector<Punto3D *> &puntos, int w, int h) {
 
     const double gaussian3[5][5] = {{0.003765, 0.015019, 0.023792, 0.015019, 0.003765},
                                     {0.015019, 0.059912, 0.094907, 0.059912, 0.015019},
@@ -1190,7 +1286,7 @@ void Segmentacion::convolucionProfundidadGaussiana5(vector<Punto3D *> &puntos, i
 }
 
 
-void Segmentacion::imprimirNumero(vector<unsigned char> &imagen, int n, int w, int h) {
+void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h) {
 
     unsigned n0[28] = {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
     unsigned n1[28] = {0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1};
@@ -1208,115 +1304,118 @@ void Segmentacion::imprimirNumero(vector<unsigned char> &imagen, int n, int w, i
     int x0 = 1;
     int x1 = 6;
     int x2 = 11;
-    int y = 1;
+    int y = 10;
     int tam = 4;
 
     int num2 = n % 10;
     int num1 = (n / 10) % 10;
     int num0 = (n / 100) % 10;
 
+    uint16_t blanco = 0b1111111111111111;
+    uint16_t color = blanco;
+
     switch (num0) {
         case 0:
-            dibujarNumero(imagen, w, h, n0, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n0, wM, hM, x0, y, tam, color);
             break;
         case 1:
-            dibujarNumero(imagen, w, h, n1, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n1, wM, hM, x0, y, tam, color);
             break;
         case 2:
-            dibujarNumero(imagen, w, h, n2, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n2, wM, hM, x0, y, tam, color);
             break;
         case 3:
-            dibujarNumero(imagen, w, h, n3, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n3, wM, hM, x0, y, tam, color);
             break;
         case 4:
-            dibujarNumero(imagen, w, h, n4, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n4, wM, hM, x0, y, tam, color);
             break;
         case 5:
-            dibujarNumero(imagen, w, h, n5, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n5, wM, hM, x0, y, tam, color);
             break;
         case 6:
-            dibujarNumero(imagen, w, h, n6, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n6, wM, hM, x0, y, tam, color);
             break;
         case 7:
-            dibujarNumero(imagen, w, h, n7, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n7, wM, hM, x0, y, tam, color);
             break;
         case 8:
-            dibujarNumero(imagen, w, h, n8, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n8, wM, hM, x0, y, tam, color);
             break;
         case 9:
-            dibujarNumero(imagen, w, h, n9, wM, hM, x0, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n9, wM, hM, x0, y, tam, color);
             break;
     }
 
     switch (num1) {
         case 0:
-            dibujarNumero(imagen, w, h, n0, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n0, wM, hM, x1, y, tam, color);
             break;
         case 1:
-            dibujarNumero(imagen, w, h, n1, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n1, wM, hM, x1, y, tam, color);
             break;
         case 2:
-            dibujarNumero(imagen, w, h, n2, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n2, wM, hM, x1, y, tam, color);
             break;
         case 3:
-            dibujarNumero(imagen, w, h, n3, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n3, wM, hM, x1, y, tam, color);
             break;
         case 4:
-            dibujarNumero(imagen, w, h, n4, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n4, wM, hM, x1, y, tam, color);
             break;
         case 5:
-            dibujarNumero(imagen, w, h, n5, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n5, wM, hM, x1, y, tam, color);
             break;
         case 6:
-            dibujarNumero(imagen, w, h, n6, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n6, wM, hM, x1, y, tam, color);
             break;
         case 7:
-            dibujarNumero(imagen, w, h, n7, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n7, wM, hM, x1, y, tam, color);
             break;
         case 8:
-            dibujarNumero(imagen, w, h, n8, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n8, wM, hM, x1, y, tam, color);
             break;
         case 9:
-            dibujarNumero(imagen, w, h, n9, wM, hM, x1, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n9, wM, hM, x1, y, tam, color);
             break;
     }
 
     switch (num2) {
         case 0:
-            dibujarNumero(imagen, w, h, n0, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n0, wM, hM, x2, y, tam, color);
             break;
         case 1:
-            dibujarNumero(imagen, w, h, n1, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n1, wM, hM, x2, y, tam, color);
             break;
         case 2:
-            dibujarNumero(imagen, w, h, n2, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n2, wM, hM, x2, y, tam, color);
             break;
         case 3:
-            dibujarNumero(imagen, w, h, n3, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n3, wM, hM, x2, y, tam, color);
             break;
         case 4:
-            dibujarNumero(imagen, w, h, n4, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n4, wM, hM, x2, y, tam, color);
             break;
         case 5:
-            dibujarNumero(imagen, w, h, n5, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n5, wM, hM, x2, y, tam, color);
             break;
         case 6:
-            dibujarNumero(imagen, w, h, n6, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n6, wM, hM, x2, y, tam, color);
             break;
         case 7:
-            dibujarNumero(imagen, w, h, n7, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n7, wM, hM, x2, y, tam, color);
             break;
         case 8:
-            dibujarNumero(imagen, w, h, n8, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n8, wM, hM, x2, y, tam, color);
             break;
         case 9:
-            dibujarNumero(imagen, w, h, n9, wM, hM, x2, y, tam, 255, 3);
+            dibujarNumero(imagen, w, h, n9, wM, hM, x2, y, tam, color);
             break;
     }
 
 }
 
-void Segmentacion::dibujarNumero(vector<unsigned char> &imagen, int w, int h, unsigned num[], int wM, int hM, int x, int y, int tam, int color, int canales) {
+void dibujarNumero(vector<uint16_t> &imagen, int w, int h, unsigned num[], int wM, int hM, int x, int y, int tam, int color) {
 
     for (int j = 0; j < hM; j++) {
         for (int i = 0; i < wM; i++) {
@@ -1326,10 +1425,9 @@ void Segmentacion::dibujarNumero(vector<unsigned char> &imagen, int w, int h, un
                 for (int n = 0; n < tam; n++) {
                     for (int m = 0; m < tam; m++) {
 
-                        for (int canal = 0; canal < canales; canal++) {
 
-                            imagen[((((((j + y) * tam) + n) * w) + ((i + x) * tam + m)) * canales) + canal] = color;
-                        }
+                        imagen[((((((j + y) * tam) + n) * w) + ((i + x) * tam + m)))] = color;
+
                     }
                 }
             }
@@ -1337,94 +1435,84 @@ void Segmentacion::dibujarNumero(vector<unsigned char> &imagen, int w, int h, un
     }
 }
 
-void Segmentacion::liberarVector(vector<Punto3D *> vect) {
-
-    for (vector<Punto3D *>::iterator it = vect.begin(); it != vect.end(); ++it) {
-        delete (*it);
-    }
-
-    vect.clear();
-
-}
-
-float Segmentacion::getMaxDepth(vector<Punto3D *> puntos) {
+float getMaxDepth(vector<Punto3D> puntos) {
 
     float maxD = 0;
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getDepth() > maxD) {
-            maxD = (*it)->getDepth();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getDepth() > maxD) {
+            maxD = (*it).getDepth();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMaxZ(vector<Punto3D *> puntos) {
+float getMaxZ(vector<Punto3D> puntos) {
 
     float maxD = 0;
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getZ() > maxD) {
-            maxD = (*it)->getZ();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getZ() > maxD) {
+            maxD = (*it).getZ();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMaxY(vector<Punto3D *> puntos) {
+float getMaxY(vector<Punto3D> puntos) {
 
     float maxD = 0;
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getY() > maxD) {
-            maxD = (*it)->getY();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getY() > maxD) {
+            maxD = (*it).getY();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMaxX(vector<Punto3D *> puntos) {
+float getMaxX(vector<Punto3D> puntos) {
 
     float maxD = 0;
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getX() > maxD) {
-            maxD = (*it)->getX();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getX() > maxD) {
+            maxD = (*it).getX();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMinZ(vector<Punto3D *> puntos) {
+float getMinZ(vector<Punto3D> puntos) {
 
     float maxD = numeric_limits<float>::min();
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getZ() < maxD) {
-            maxD = (*it)->getZ();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getZ() < maxD) {
+            maxD = (*it).getZ();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMinX(vector<Punto3D *> puntos) {
+float getMinX(vector<Punto3D> puntos) {
 
     float maxD = numeric_limits<float>::min();
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getX() < maxD) {
-            maxD = (*it)->getX();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getX() < maxD) {
+            maxD = (*it).getX();
         }
     }
 
     return maxD;
 }
 
-float Segmentacion::getMinY(vector<Punto3D *> puntos) {
+float getMinY(vector<Punto3D> puntos) {
 
     float maxD = numeric_limits<float>::min();
-    for (vector<Punto3D *>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
-        if ((*it)->getY() < maxD) {
-            maxD = (*it)->getY();
+    for (vector<Punto3D>::iterator it = puntos.begin(); it != puntos.end(); ++it) {
+        if ((*it).getY() < maxD) {
+            maxD = (*it).getY();
         }
     }
 
