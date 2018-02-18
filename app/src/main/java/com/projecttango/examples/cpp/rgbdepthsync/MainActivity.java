@@ -31,6 +31,7 @@ import android.view.View;
 import android.view.WindowManager;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
+import android.widget.RadioGroup;
 import android.widget.SeekBar;
 import android.widget.Toast;
 
@@ -54,6 +55,7 @@ public class MainActivity extends Activity {
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
     private CheckBox mGPUUpsampleCheckbox;
+    private RadioGroup mGrupoModoVision;
 
 
     // Tango Service connection.
@@ -69,6 +71,8 @@ public class MainActivity extends Activity {
         }
     };
 
+
+    //Listeners de los botones de la interfaz
     private class DepthOverlaySeekbarListener implements SeekBar.OnSeekBarChangeListener {
         @Override
         public void onProgressChanged(SeekBar seekBar, int progress,
@@ -100,10 +104,62 @@ public class MainActivity extends Activity {
         }
     }
 
-    private class GPUUpsampleListener implements CheckBox.OnCheckedChangeListener {
+    private class MuteListener implements CheckBox.OnCheckedChangeListener {
         @Override
         public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
-            TangoJNINative.setGPUUpsample(isChecked);
+            TangoJNINative.setMute(isChecked);
+        }
+    }
+
+    private class ModoVisionListener implements RadioGroup.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(RadioGroup group, int checkedId) {
+
+            int modo = 0;
+
+            switch (checkedId){
+                case R.id.radio_puntos_validos:
+                    modo=0;
+                    break;
+                case R.id.radio_coordenadas:
+                    modo=1;
+                    break;
+                case R.id.radio_normales:
+                    modo=2;
+                    break;
+                case R.id.radio_normales_x:
+                    modo=3;
+                    break;
+                case R.id.radio_normales_y:
+                    modo=4;
+                    break;
+                case R.id.radio_normales_z:
+                    modo=5;
+                    break;
+                case R.id.radio_planos_locales:
+                    modo=6;
+                    break;
+                case R.id.radio_planos_validos:
+                    modo=7;
+                    break;
+                case R.id.radio_planos_extendidos:
+                    modo=8;
+                    break;
+                case R.id.radio_planos_unidos:
+                    modo=9;
+                    break;
+                case R.id.radio_elementos:
+                    modo=10;
+                    break;
+                case R.id.radio_elementos_relevantes:
+                    modo=11;
+                    break;
+                default:
+                    modo=0;
+            }
+
+            TangoJNINative.setModoVision(modo);
+
         }
     }
 
@@ -140,6 +196,8 @@ public class MainActivity extends Activity {
 
         setContentView(R.layout.activity_main);
 
+
+        //Listeners de los botones de la interfaz
         mDepthOverlaySeekbar = (SeekBar) findViewById(R.id.depth_overlay_alpha_seekbar);
         mDepthOverlaySeekbar.setOnSeekBarChangeListener(new DepthOverlaySeekbarListener());
         mDepthOverlaySeekbar.setVisibility(View.GONE);
@@ -147,8 +205,12 @@ public class MainActivity extends Activity {
         mdebugOverlayCheckbox = (CheckBox) findViewById(R.id.debug_overlay_checkbox);
         mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListener());
 
-        mGPUUpsampleCheckbox = (CheckBox) findViewById(R.id.gpu_upsample_checkbox);
-        mGPUUpsampleCheckbox.setOnCheckedChangeListener(new GPUUpsampleListener());
+        mGPUUpsampleCheckbox = (CheckBox) findViewById(R.id.sonido_checkbox);
+        mGPUUpsampleCheckbox.setOnCheckedChangeListener(new MuteListener());
+
+        mGrupoModoVision = (RadioGroup) findViewById(R.id.grupo_modo_vision);
+        mGrupoModoVision.setOnCheckedChangeListener(new ModoVisionListener());
+
 
         // OpenGL view where all of the graphics are drawn
         mGLView = (GLSurfaceView) findViewById(R.id.gl_surface_view);

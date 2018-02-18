@@ -48,26 +48,7 @@ namespace rgb_depth_sync {
         //
         // @param render_point_cloud_buffer: This contains the latest point cloud data
         // that gets projected on to the image plane and fills up the depth_map_buffer
-        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0,
-                                    const TangoPointCloud *render_point_cloud_buffer);
-
-        // Update the depth texture by direct rendering.
-        // @param  color_t1_T_depth_t0: The transformation between the color camera
-        //    frame on timestamp i (color camera timestamp) and the depth camera
-        //    frame on timestamp j (depth camera timestamp)
-        // To convert a point in the depth camera frame on timestamp t0 to the color
-        // camera frame
-        // on timestamp t1, you could do:
-        //    color_t1_point = color_t1_T_depth_t0 * depth_t0_point;
-        //
-        // @param render_point_cloud_buffer: This contains the latest point cloud data
-        // that gets projected on to the image plane and fills up the depth_map_buffer
-        //
-        // @param new_points Indicates if the point data has been updated and needs to
-        // be uploaded to the GPU.
-        void RenderDepthToTexture(const glm::mat4 &color_t1_T_depth_t0,
-                                  const TangoPointCloud *render_point_cloud_buffer,
-                                  bool new_points);
+        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0, const TangoPointCloud *render_point_cloud_buffer, int modoVista);
 
         // Returns the depth texture id.
         GLuint GetTextureId() const { return texture_id_; }
@@ -83,35 +64,10 @@ namespace rgb_depth_sync {
         void SetDepthCameraIntrinsics(TangoCameraIntrinsics intrinsics);
 
     private:
-        // Initialize the OpenGL structures needed to render depth image to texture.
-        // Returns true if the texture was created and false if an existing texture
-        // was bound.
-        bool CreateOrBindGPUTexture();
-
         // Initialize the OpenGL structures needed for the CPU texture generation.
         // Returns true if the texture was created and false if an existing texture
         // was bound.
         bool CreateOrBindCPUTexture();
-
-        // This function takes care of upsampling depth around a given point by
-        // setting the same value in a bounding box. Note:This is a very rudimentary
-        // approach to upsampling depth.
-        //
-        // @param color_value: The value that needs to set for all points in a
-        // bounding box.
-        //
-        // @param pixel_x: The pixel along x axis in the grayscale_buffer around which
-        // depth needs to be upsampled.
-        //
-        // @param pixel_y: The pixel along y axis in the grayscale_buffer around which
-        // depth needs to be upsampled.
-        //
-        // @param grayscale_buffer: The image buffer in which upsampling needs to be
-        // done.
-        void UpSampleDepthAroundPoint(uint8_t color_value, float depth_value,
-                                      int pixel_x, int pixel_y,
-                                      std::vector<uint16_t> *grayscale_buffer,
-                                      std::vector<float> *depth_map_buffer);
 
         // The defined max distance for a depth value.
         static const int kMaxDepthDistance = 4000;

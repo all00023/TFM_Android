@@ -68,9 +68,15 @@ Java_com_projecttango_examples_cpp_rgbdepthsync_TangoJNINative_setDepthAlphaValu
 }
 
 JNIEXPORT void JNICALL
-Java_com_projecttango_examples_cpp_rgbdepthsync_TangoJNINative_setGPUUpsample(
+Java_com_projecttango_examples_cpp_rgbdepthsync_TangoJNINative_setMute(
     JNIEnv*, jobject, jboolean on) {
-  return app.SetGPUUpsample(on);
+  return app.SetMute(on);
+}
+
+JNIEXPORT void JNICALL
+Java_com_projecttango_examples_cpp_rgbdepthsync_TangoJNINative_setModoVision(
+        JNIEnv*, jobject, jint modo) {
+    return app.SetModoVision(modo);
 }
 
 JNIEXPORT void JNICALL

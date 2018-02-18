@@ -47,11 +47,13 @@ namespace rgb_depth_sync {
             : color_image_(),
               depth_image_(),
               main_scene_(),
-              gpu_upsample_(false),
               is_service_connected_(false),
               is_gl_initialized_(false),
               color_camera_to_display_rotation_(
-                      TangoSupport_Rotation::TANGO_SUPPORT_ROTATION_0) {}
+                      TangoSupport_Rotation::TANGO_SUPPORT_ROTATION_0),
+              mute(false),
+              modoVision(0) {}
+
 
     SynchronizationApplication::~SynchronizationApplication() {
         if (tango_config_) {
@@ -99,7 +101,9 @@ namespace rgb_depth_sync {
 
     void SynchronizationApplication::TangoSetupConfig() {
         SetDepthAlphaValue(0.0);
-        SetGPUUpsample(false);
+        //Inicializacion listeners
+        SetMute(false);
+        SetModoVision(0);
 
         if (tango_config_ != nullptr) {
             return;
@@ -314,13 +318,10 @@ namespace rgb_depth_sync {
         glm::mat4 color_image_t1_T_depth_image_t0 =
                 util::GetMatrixFromPose(&pose_color_image_t1_T_depth_image_t0);
 
-        if (gpu_upsample_) {
-            depth_image_.RenderDepthToTexture(color_image_t1_T_depth_image_t0,
-                                              pointcloud_buffer, new_points);
-        } else {
-            depth_image_.UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
-                                                pointcloud_buffer);
-        }
+
+        depth_image_.UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
+                                            pointcloud_buffer, modoVision);
+
         main_scene_.Render(color_image_.GetTextureId(), depth_image_.GetTextureId(),
                            color_camera_to_display_rotation_);
     }
@@ -329,7 +330,8 @@ namespace rgb_depth_sync {
         main_scene_.SetDepthAlphaValue(alpha);
     }
 
-    void SynchronizationApplication::SetGPUUpsample(bool on) { gpu_upsample_ = on; }
+    void SynchronizationApplication::SetMute(bool on) { mute = on; }
+    void SynchronizationApplication::SetModoVision(int modo) { modoVision = modo; }
 
     void SynchronizationApplication::OnDisplayChanged(int display_rotation,
                                                       int color_camera_rotation) {

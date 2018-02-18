@@ -5,8 +5,8 @@
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h) {
 
-    int wOrig = w*2;
-    int hOrig = h*2;
+    int wOrig = w * 2;
+    int hOrig = h * 2;
 
     int point_cloud_size = nube->num_points;
     for (int i = 0; i < point_cloud_size; ++i) {
@@ -27,7 +27,7 @@ void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraInt
 
         int posicion = (pixel_x % 2) + ((pixel_y % 2) * 2);
 
-        if (pixel_x >= 0 && pixel_x < wOrig && pixel_y >= 0 && pixel_y < hOrig &&  z > 0) {
+        if (pixel_x >= 0 && pixel_x < wOrig && pixel_y >= 0 && pixel_y < hOrig && z > 0) {
 
             Punto3D *punto = &puntos[(pixel_y / 2) * w + (pixel_x / 2)];
 
@@ -79,7 +79,7 @@ void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraInt
 
 }
 
-int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes) {
+int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista) {
 
     LOGE("1");
     vector<float> integralX = vector<float>(w * h, 0);
@@ -98,6 +98,9 @@ int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemen
     calcularNormales(puntos, w, h, integralX, integralY, integralZ, vecinos);
     LOGE("4");
 
+    if (modoVista <= 5)
+        return 0;
+
     vector<int> padres;
     aplicarConnectedComponentsLabeling(puntos, f, padres, w, h);
     LOGE("5");
@@ -109,16 +112,28 @@ int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemen
     asignarPuntosAPlanos(puntos, planos, contadorPuntosEnPadres);
     LOGE("7");
 
+    if (modoVista == 6)
+        return planos.size();
+
     borrarPlanosNoValidos(planos);
     LOGE("8");
 
+    if (modoVista == 7)
+        return planos.size();
+
     extenderPlanos(puntos, w, h);
     LOGE("9");
+
+    if (modoVista == 8)
+        return planos.size();
 
     //recalcularParametrosDelPlano(planos);
 
     combinarPlanos(planos);
     LOGE("10");
+
+    if (modoVista == 9)
+        return planos.size();
 
     vector<int> padresDepth;
     vector<int> etiquetasDepth = vector<int>(w * h, 0);
@@ -129,10 +144,13 @@ int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemen
     reducirPadresYAplicarEtiquetasDepth(puntos, padresDepth, etiquetasDepth, contadorPuntosEnPadresDepth);
     LOGE("12");
 
-
     asignarPuntosAElementos(puntos, elementos, contadorPuntosEnPadresDepth);
     LOGE("13");
     detectarSuelo(planos, suelo);
+
+    if (modoVista == 10)
+        return planos.size() + elementos.size();
+
     LOGE("14");
     //detectarRelevantes(puntos, planos, elementos, suelo, relevantes);
     LOGE("15");
@@ -1119,7 +1137,7 @@ void colorearPorEtiqueta(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int 
                     color = it->second;
                 } else {
                     color = (((rand() % 15) + 10) << 11) + (((rand() % 15) + 10) << 6) + (((rand() % 15) + 10) << 1) + 1;
-                    paleta.insert(pair<int, uint16_t>(puntos[i].getEtiqueta(), color));
+                    paleta.insert(pair<int, uint16_t>(puntos[j * w + i].getEtiqueta(), color));
                 }
 
                 for (int x = 0; x < escala; x++) {
@@ -1127,66 +1145,138 @@ void colorearPorEtiqueta(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int 
                         imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
                     }
                 }
-
-//                imagen[2 * j * w + 2 * i] = color;
-//                imagen[2 * j * w + (2 * i + 1)] = color;
-//                imagen[(2 * j + 1) * w + 2 * i] = color;
-//                imagen[(2 * j + 1) * w + (2 * i + 1)] = color;
-//                imagen[j * w + i] = color;
-//                imagen[ j * w + ( i + 1)] = color;
-//                imagen[( j + 1) * w +  i] = color;
-//                imagen[( j + 1) * w + ( i + 1)] = color;
             }
         }
     }
 }
 
+void colorearPorValidos(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
 
-void colorearPorNormales(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
 
-    for (int i = 0; i < puntos.size(); i++) {
+            if (puntos[j * w + i].getValido()) {
 
-        if (puntos[i]->getValido()) {
+                uint16_t color = 0b1111111111111111;
 
-            imagen[i * 3 + 0] = (puntos[i]->getNX() + 1) * 128;
-            imagen[i * 3 + 1] = (puntos[i]->getNY() + 1) * 128;
-            imagen[i * 3 + 2] = (puntos[i]->getNZ() + 1) * 128;
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void colorearPorCoordenadas(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
+
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+
+            if (puntos[j * w + i].getValido()) {
+
+                uint16_t color = ((((int) ((puntos[j * w + i].getX() * 3 + 16))) << 11) + (((int) ((puntos[j * w + i].getY() * 3 + 16))) << 6) + (((int) ((puntos[j * w + i].getZ() * 3 + 16))) + 10) << 1) + 1;
+
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void colorearPorNormales(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
+
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+
+            if (puntos[j * w + i].getValido()) {
+
+                uint16_t color = (((int) ((puntos[j * w + i].getNX() + 1) * 16) << 11) + ((int) ((puntos[j * w + i].getNY() + 1) * 16) << 6) + ((int) ((puntos[j * w + i].getNZ() + 1) * 16)) << 1) + 1;
+
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void colorearPorNormalesX(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
+
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
+
+            if (puntos[j * w + i].getValido()) {
+
+                u_int8_t gris = (int) ((puntos[j * w + i].getNX() + 1) * 16);
+                uint16_t color = (gris << 11) + (gris << 6) + (gris << 1) + 1;
+
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
         }
     }
 
 }
 
-void colorearPorNormalesX(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
+void colorearPorNormalesY(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
 
-    for (int i = 0; i < puntos.size(); i++) {
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
 
-        if (puntos[i]->getValido()) {
+            if (puntos[j * w + i].getValido()) {
 
-            imagen[i * 3 + 0] = imagen[i * 3 + 1] = imagen[i * 3 + 2] = (puntos[i]->getNX() + 1) * 128;
+                u_int8_t gris = (int) ((puntos[j * w + i].getNY() + 1) * 16);
+                uint16_t color = (gris << 11) + (gris << 6) + (gris << 1) + 1;
+
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
         }
     }
 
 }
 
-void colorearPorNormalesY(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
+void colorearPorNormalesZ(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala) {
 
-    for (int i = 0; i < puntos.size(); i++) {
+    int wImagen = escala * w;
+    map<int, uint16_t> paleta;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
 
-        if (puntos[i]->getValido()) {
+            if (puntos[j * w + i].getValido()) {
 
-            imagen[i * 3 + 0] = imagen[i * 3 + 1] = imagen[i * 3 + 2] = (puntos[i]->getNY() + 1) * 128;
-        }
-    }
+                u_int8_t gris = (int) ((puntos[j * w + i].getNZ() + 1) * 16);
+                uint16_t color = (gris << 11) + (gris << 6) + (gris << 1) + 1;
 
-}
-
-void colorearPorNormalesZ(vector<Punto3D *> &puntos, vector<uint16_t> &imagen) {
-
-    for (int i = 0; i < puntos.size(); i++) {
-
-        if (puntos[i]->getValido()) {
-
-            imagen[i * 3 + 0] = imagen[i * 3 + 1] = imagen[i * 3 + 2] = (puntos[i]->getNZ() + 1) * 128;
+                for (int x = 0; x < escala; x++) {
+                    for (int y = 0; y < escala; y++) {
+                        imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                    }
+                }
+            }
         }
     }
 
@@ -1286,7 +1376,7 @@ void convolucionProfundidadGaussiana5(vector<Punto3D *> &puntos, int w, int h) {
 }
 
 
-void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h) {
+void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h, int x, int y) {
 
     unsigned n0[28] = {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0};
     unsigned n1[28] = {0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 1};
@@ -1301,10 +1391,9 @@ void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h) {
 
     int wM = 4;
     int hM = 7;
-    int x0 = 1;
-    int x1 = 6;
+    int x0 = 1 + x;
+    int x1 = 6 + x;
     int x2 = 11;
-    int y = 10;
     int tam = 4;
 
     int num2 = n % 10;

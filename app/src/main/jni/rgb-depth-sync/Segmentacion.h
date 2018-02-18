@@ -71,7 +71,7 @@ const char colores[8][3] = {{255, 0,   0},
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h);
 
-int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes);
+int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista);
 
 void calcularNormales(vector<Punto3D> &puntos, int w, int h, vector<float> integralX, vector<float> integralY, vector<float> integralZ, vector<int> vecinos);
 
@@ -123,15 +123,19 @@ void convolucionProfundidadGaussiana5(vector<Punto3D> &puntos, int w, int h);
 
 void dibujarNumero(vector<uint16_t> &imagen, int w, int h, unsigned num[], int wM, int hM, int x, int y, int tam, int color);
 
-void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h);
+void imprimirNumero(vector<uint16_t> &imagen, int n, int w, int h, int x, int y);
 
-void colorearPorNormales(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
+void colorearPorValidos(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
 
-void colorearPorNormalesX(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
+void colorearPorCoordenadas(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
 
-void colorearPorNormalesY(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
+void colorearPorNormales(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
 
-void colorearPorNormalesZ(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
+void colorearPorNormalesX(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
+
+void colorearPorNormalesY(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
+
+void colorearPorNormalesZ(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
 
 void colorearPorProfundidad(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
 

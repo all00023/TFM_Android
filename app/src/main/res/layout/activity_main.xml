@@ -1,41 +1,160 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content" >
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content">
 
     <android.opengl.GLSurfaceView
         android:id="@+id/gl_surface_view"
         android:layout_width="fill_parent"
         android:layout_height="fill_parent"
-        android:layout_gravity="top"
-        android:layout_alignParentTop="true" />
+        android:layout_alignParentTop="true"
+        android:layout_gravity="top"/>
 
     <SeekBar
+        android:id="@+id/depth_overlay_alpha_seekbar"
         android:layout_width="250dp"
         android:layout_height="wrap_content"
-        android:id="@+id/depth_overlay_alpha_seekbar"
         android:layout_alignParentBottom="true"
         android:layout_alignParentStart="true"
+        android:indeterminate="false"
         android:max="100"
-        android:progress="50"
-        android:indeterminate="false" />
+        android:progress="50"/>
 
-    <CheckBox
-        android:id="@+id/gpu_upsample_checkbox"
+    <LinearLayout
         android:layout_width="300dp"
         android:layout_height="wrap_content"
-        android:text="GPU Upsample"
-        android:layout_alignParentTop="true"
         android:layout_alignParentEnd="false"
-        android:checked="false"
-        android:layout_margin="2dp" />
+        android:layout_alignParentTop="true"
+        android:orientation="vertical"
+        android:layout_marginTop="20dp">
 
-    <CheckBox
-        android:id="@+id/debug_overlay_checkbox"
+        <TextView
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="2dp"
+            android:checked="false"
+            android:text="Vista"
+            android:textColor="@android:color/white"/>
+
+        <RadioGroup
+            android:id="@+id/grupo_modo_vision"
+            android:layout_width="300dp"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/radio_puntos_validos"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:checked="true"
+
+                android:text="Puntos validos"/>
+
+            <RadioButton
+                android:id="@+id/radio_coordenadas"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Coordenadas (RGB)"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_normales"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Normales"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_normales_x"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Normales X"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_normales_y"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Normales Y"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_normales_z"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Normales Z"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_planos_locales"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Planos locales"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_planos_validos"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Planos válidos"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_planos_extendidos"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Planos extendidos"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_planos_unidos"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Planos unidos"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_elementos"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Elementos"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_elementos_relevantes"
+                android:layout_width="300dp"
+                android:layout_height="wrap_content"
+                android:text="Elementos relevantes"
+                />
+
+        </RadioGroup>
+
+    </LinearLayout>
+
+
+    <LinearLayout
         android:layout_width="300dp"
         android:layout_height="wrap_content"
-        android:text="Debug Overlay"
-        android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
-        android:checked="false"
-        android:layout_margin="2dp" />
+        android:layout_alignParentTop="true"
+        android:orientation="vertical">
+
+        <CheckBox
+            android:id="@+id/debug_overlay_checkbox"
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_margin="2dp"
+            android:checked="false"
+            android:text="Debug Overlay"/>
+
+
+        <CheckBox
+            android:id="@+id/sonido_checkbox"
+            android:layout_width="300dp"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="2dp"
+            android:layout_marginRight="2dp"
+            android:layout_marginTop="2dp"
+            android:checked="false"
+            android:text="Mute"/>
+
+    </LinearLayout>
 </RelativeLayout>
