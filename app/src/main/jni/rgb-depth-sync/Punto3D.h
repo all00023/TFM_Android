@@ -43,9 +43,6 @@ public:
 
     void calcularPunto(){
         if (auxiliarPuntosValidos == 1){
-            x = x;
-            y = y;
-            z = z;
             valido = true;
             calcularDepth();
         } else if (auxiliarPuntosValidos > 1){
@@ -68,10 +65,10 @@ public:
         auxiliarPuntosValidos++;
     }
 
-    void addPuntoPosicion(float x, float y, float z, int pos){
-        this->x += x;
-        this->y += y;
-        this->z += z;
+    void setPuntoPosicion(float x, float y, float z, int pos){
+        this->x = x;
+        this->y = y;
+        this->z = z;
         posicionOriginal = pos;
         valido = true;
     }

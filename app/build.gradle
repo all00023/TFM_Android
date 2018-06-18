@@ -1,30 +1,45 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        config {
+            keyAlias 'key0'
+            keyPassword 'tfmtfm'
+            storeFile file('C:/Users/Adrian/TFM.jks')
+            storePassword 'tfmtfm'
+        }
+    }
     compileSdkVersion 23
     buildToolsVersion '26.0.2'
-
     defaultConfig {
         minSdkVersion 19
         targetSdkVersion 22
         ndk {
             abiFilters 'armeabi-v7a', 'arm64-v8a'
         }
+        signingConfig signingConfigs.config
     }
-
     externalNativeBuild {
         ndkBuild {
             path 'src/main/jni/Android.mk'
         }
     }
-
-
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
+        debug {
+            signingConfig signingConfigs.config
+        }
     }
+    productFlavors {
+    }
+
+    lintOptions {
+        checkReleaseBuilds false
+    }
+
 }
 
 

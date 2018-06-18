@@ -16,7 +16,7 @@
 
 #include "tango-gl/conversions.h"
 
-#include "rgb-depth-sync/scene.h"
+#include "rgbdsegmentation/scene.h"
 
 namespace rgb_depth_sync {
 

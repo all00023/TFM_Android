@@ -1,7 +1,7 @@
 //
 // Created by Adrian on 10/12/2017.
 //
-#include "rgb-depth-sync/Segmentacion.h"
+#include "rgbdsegmentation/Segmentacion.h"
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h) {
 
@@ -32,7 +32,7 @@ void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraInt
             Punto3D *punto = &puntos[(pixel_y / 2) * w + (pixel_x / 2)];
 
             if (posicion < punto->getPosicionOriginal()) {
-                punto->addPuntoPosicion(x, y, z, posicion);
+                punto->setPuntoPosicion(x, y, z, posicion);
             }
         }
 
@@ -79,50 +79,50 @@ void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraInt
 
 }
 
-int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista) {
+int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), double timestampDepth, int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista) {
 
-    LOGE("1");
+//    LOGE("1");
     vector<float> integralX = vector<float>(w * h, 0);
     vector<float> integralY = vector<float>(w * h, 0);
     vector<float> integralZ = vector<float>(w * h, 0);
     calcularIntegralX(puntos, integralX, w, h);
     calcularIntegralY(puntos, integralY, w, h);
     calcularIntegralZ(puntos, integralZ, w, h);
-    LOGE("2");
+//    LOGE("2");
 
     vector<int> vecinos = vector<int>(w * h, 0);
 
     calcularMapaDinamicoDeVecinos(puntos, vecinos, w, h);
-    LOGE("3");
+//    LOGE("3");
 
     calcularNormales(puntos, w, h, integralX, integralY, integralZ, vecinos);
-    LOGE("4");
+//    LOGE("4");
 
     if (modoVista <= 5)
         return 0;
 
     vector<int> padres;
     aplicarConnectedComponentsLabeling(puntos, f, padres, w, h);
-    LOGE("5");
+//    LOGE("5");
 
     vector<int> contadorPuntosEnPadres = vector<int>(padres.size(), 0);
     reducirPadres(puntos, padres, contadorPuntosEnPadres);
-    LOGE("6");
+//    LOGE("6");
 
     asignarPuntosAPlanos(puntos, planos, contadorPuntosEnPadres);
-    LOGE("7");
+//    LOGE("7");
 
     if (modoVista == 6)
         return planos.size();
 
     borrarPlanosNoValidos(planos);
-    LOGE("8");
+//    LOGE("8");
 
     if (modoVista == 7)
         return planos.size();
 
     extenderPlanos(puntos, w, h);
-    LOGE("9");
+//    LOGE("9");
 
     if (modoVista == 8)
         return planos.size();
@@ -130,7 +130,7 @@ int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemen
     //recalcularParametrosDelPlano(planos);
 
     combinarPlanos(planos);
-    LOGE("10");
+//    LOGE("10");
 
     if (modoVista == 9)
         return planos.size();
@@ -138,22 +138,22 @@ int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemen
     vector<int> padresDepth;
     vector<int> etiquetasDepth = vector<int>(w * h, 0);
     aplicarConnectedComponentsLabelingDepth(puntos, f2, padresDepth, etiquetasDepth, w, h);
-    LOGE("11");
+//    LOGE("11");
 
     vector<int> contadorPuntosEnPadresDepth = vector<int>(padresDepth.size(), 0);
     reducirPadresYAplicarEtiquetasDepth(puntos, padresDepth, etiquetasDepth, contadorPuntosEnPadresDepth);
-    LOGE("12");
+//    LOGE("12");
 
     asignarPuntosAElementos(puntos, elementos, contadorPuntosEnPadresDepth);
-    LOGE("13");
-    detectarSuelo(planos, suelo);
+//    LOGE("13");
+    detectarSuelo(planos, suelo, timestampDepth);
 
     if (modoVista == 10)
         return planos.size() + elementos.size();
 
-    LOGE("14");
-    //detectarRelevantes(puntos, planos, elementos, suelo, relevantes);
-    LOGE("15");
+//    LOGE("14");
+    detectarRelevantes(puntos, planos, elementos, suelo, relevantes);
+//    LOGE("15");
 
     return relevantes.size();
 
@@ -900,25 +900,41 @@ int combinarPlanos(map<int, Plano3D> &planos) {
 
 }
 
-void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo) {
-    float yMin = numeric_limits<float>::min();
+void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo, double timestampDepth) {
 
-    //Al pasar a Tango hay que comprobar que el suelo es plano en la y
+    TangoSupport_MatrixTransformData matrix_transform;
+    TangoSupport_getMatrixTransformAtTime(
+            timestampDepth, TANGO_COORDINATE_FRAME_START_OF_SERVICE,
+            TANGO_COORDINATE_FRAME_CAMERA_DEPTH, TANGO_SUPPORT_ENGINE_OPENGL,
+            TANGO_SUPPORT_ENGINE_TANGO, TANGO_SUPPORT_ROTATION_IGNORED,
+            &matrix_transform);
+    if (matrix_transform.status_code != TANGO_POSE_VALID) {
+        LOGE(
+                "Could not find a valid matrix transform at time %lf for the depth camera.",
+                timestampDepth);
+        return;
+    }
+
+    glm::vec3 translation;
+    glm::quat rotation;
+    glm::vec3 scale;
+    glm::mat4 depth_matrix = glm::make_mat4(matrix_transform.matrix);
+    tango_gl::util::DecomposeMatrix(depth_matrix, &translation, &rotation, &scale);
+
+    glm::vec3 lookAt;
+
+    LOGE("X:%f Y:%f Z:%f", translation[0], translation[1], translation[2]);
 
     map<int, Plano3D>::iterator it = planos.begin();
 
     while (it != planos.end()) {
-        if ((*it).second.getCY() < yMin) {
-            yMin = (*it).second.getCY();
-        }
-        it++;
-    }
+        Plano3D *plano = &(*it).second;
 
-    it = planos.begin();
-    while (it != planos.end()) {
-        if (abs((*it).second.getCY() - yMin) < 0.1) {//10 centimetros de umbral
-            suelo.insert((*it).first);
+        //es plano en la y, y la altura a la tablet es mayor a un metro
+        if (plano->esSuelo(depth_matrix, translation[1], umbralSueloAltura, umbralSueloNormal)) {
+            suelo.insert(plano->getEtiqueta());
         }
+
         it++;
     }
 
@@ -926,54 +942,39 @@ void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo) {
 
 void detectarRelevantes(vector<Punto3D> puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, set<int> &suelo, map<int, int> &relevantes) {
 
-    float maxX = max(getMaxX(puntos), abs(getMinX(puntos)));
-    float maxY = max(getMaxY(puntos), abs(getMinY(puntos)));
+    float maxX = max(abs(getMaxX(puntos)), abs(getMinX(puntos)));
+    float maxY = max(abs(getMaxY(puntos)), abs(getMinY(puntos)));
     float maxZ = getMaxZ(puntos);
     int tamImagen = puntos.size();
 
     //cout << getMaxX(puntos) << " " << getMinX(puntos) << " | " << getMaxY(puntos) << " " << getMinY(puntos) << " | " << getMaxZ(puntos) << " " << getMinZ(puntos) << "" << endl;
 
-    vector<int> etiquetas = vector<int>();
-    vector<float> puntuaciones = vector<float>();
-    LOGE("D1");
+    vector<pair<int, float>> etiquetas = vector<pair<int, float>>();
+//    LOGE("D1");
     map<int, Plano3D>::iterator itPlano = planos.begin();
     while (itPlano != planos.end()) {
         if (suelo.find((*itPlano).first) == suelo.end()) {
-            etiquetas.push_back((*itPlano).first);
-            puntuaciones.push_back(puntuarElemento(&(*itPlano).second, tamImagen, maxX, maxY, maxZ));
+            etiquetas.push_back(pair<int, float>((*itPlano).first, puntuarElemento(&(*itPlano).second, tamImagen, maxX, maxY, maxZ)));
         }
         itPlano++;
     }
 
-    LOGE("D2");
+//    LOGE("D2");
     map<int, Elemento3D>::iterator itElem = elementos.begin();
     while (itElem != elementos.end()) {
-        etiquetas.push_back((*itElem).first);
-        puntuaciones.push_back(puntuarElemento(&((*itElem).second), tamImagen, maxX, maxY, maxZ));
+        etiquetas.push_back(pair<int, float>((*itElem).first, puntuarElemento(&(*itElem).second, tamImagen, maxX, maxY, maxZ)));
         itElem++;
     }
 
     float auxF;
     int auxI;
 
-    LOGE("D3");
-    for (int i = 0; i < (etiquetas.size() - 1); i++) {
-        for (int j = 0; j < etiquetas.size() - i - 1; j++) {
-            if (puntuaciones[j] < puntuaciones[j + 1]) {
-                auxF = puntuaciones[j];
-                puntuaciones[j] = puntuaciones[j + 1];
-                puntuaciones[j + 1] = auxF;
+//    LOGE("D3");
+    sort(etiquetas.begin(), etiquetas.end(), [](pair<int, float> p1, pair<int, float> p2) { return p1.second > p2.second; });
 
-                auxI = etiquetas[j];
-                etiquetas[j] = etiquetas[j + 1];
-                etiquetas[j + 1] = auxI;
-            }
-        }
-    }
-
-    LOGE("D4");
+//    LOGE("D4");
     for (int i = 0; i < etiquetas.size() && i < nRelevantes; i++) {
-        relevantes.insert(pair<int, int>(etiquetas[i], i));
+        relevantes.insert(pair<int, int>(i, etiquetas[i].first));
     }
 
 }
@@ -982,7 +983,7 @@ void detectarRelevantes(vector<Punto3D> puntos, map<int, Plano3D> &planos, map<i
 float puntuarElemento(Elemento3D *elemento, int escalaTamaño, float maxX, float maxY, float maxZ) {
 
     float puntosTamaño = ((elemento->getNumeroPuntos() * 1.0) / escalaTamaño) * multiplicadorTamaño;
-    float puntosPosicion = ((maxX - abs(elemento->getCX()) / maxX) * (maxY - abs(elemento->getCY()) / maxY)) * multiplicadorPosicion;
+    float puntosPosicion = ((maxX - abs(elemento->getCX()) / maxX) + (maxY - abs(elemento->getCY()) / maxY)) * multiplicadorPosicion;
     float puntosDistancia = (abs(maxZ - abs(elemento->getCZ())) / maxZ) * multiplicadorDistancia;
 
     return puntosTamaño + puntosPosicion + puntosDistancia;
@@ -1080,42 +1081,46 @@ bool comparadorNormales(Punto3D *punto1, Punto3D *punto2) {
     }
 }*/
 
-void colorearPorEtiquetaRelevantes(vector<Punto3D *> &puntos, vector<uint16_t> &imagen, set<int> &suelo, set<int> &relevantes) {
+void colorearPorEtiquetaRelevantes(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala, set<int> &suelo, map<int, int> &relevantes) {
 
     int contador = 0;
-    map<int, vector<int>> paleta;
-    vector<int> blanco = {255, 255, 255};
+    map<int, uint16_t> paleta;
 
     //Asignamos color blanco al suelo
     set<int>::iterator it = suelo.begin();
     while (it != suelo.end()) {
         int id = *it;
-        paleta.insert(pair<int, vector<int>>(id, blanco));
+        paleta.insert(pair<int, uint16_t>(id, blanco));
         it++;
     }
 
-    for (int i = 0; i < puntos.size(); i++) {
+    //Asignamos colores a los tres objetos relevantes, rojo, verde y azul en orden. Max 6 colores diferentes
+    map<int, int>::iterator itMap = relevantes.begin();
+    while (itMap != relevantes.end()) {
+        int color = (*itMap).first;
+        int id = (*itMap).second;
+        paleta.insert(pair<int, uint16_t>(id, coloresBasicos[color % coloresMaximos]));
+        itMap++;
+    }
 
-        if (puntos[i]->getValido() && puntos[i]->getEtiqueta() != 0) {
+    int wImagen = escala * w;
+    for (int j = 0; j < h; j++) {
+        for (int i = 0; i < w; i++) {
 
-            if (suelo.find(puntos[i]->getEtiqueta()) != suelo.end() || relevantes.find(puntos[i]->getEtiqueta()) != relevantes.end()) {
+            if (puntos[j * w + i].getValido() && puntos[j * w + i].getEtiqueta() != 0) {
 
-                vector<int> color;
-                map<int, vector<int>>::iterator it = paleta.find(puntos[i]->getEtiqueta());
+                uint16_t color;
+                map<int, uint16_t>::iterator it = paleta.find(puntos[j * w + i].getEtiqueta());
 
                 if (it != paleta.end()) {
                     color = it->second;
-                } else {
-                    color = vector<int>(3);
-                    color[0] = (rand() % 100) + 100;
-                    color[1] = (rand() % 100) + 100;
-                    color[2] = (rand() % 100) + 100;
-                    paleta.insert(pair<int, vector<int>>(puntos[i]->getEtiqueta(), color));
-                }
+                    for (int x = 0; x < escala; x++) {
+                        for (int y = 0; y < escala; y++) {
+                            imagen[((j * escala) + y) * wImagen + ((i * escala) + x)] = color;
+                        }
+                    }
 
-                imagen[i * 3 + 0] = color[0];
-                imagen[i * 3 + 1] = color[1];
-                imagen[i * 3 + 2] = color[2];
+                }
             }
         }
     }
