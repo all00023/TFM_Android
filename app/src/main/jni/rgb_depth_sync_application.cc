@@ -320,7 +320,7 @@ namespace rgb_depth_sync {
 
 
         depth_image_.UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
-                                            pointcloud_buffer, modoVision);
+                                            pointcloud_buffer, modoVision, this);
 
         main_scene_.Render(color_image_.GetTextureId(), depth_image_.GetTextureId(),
                            color_camera_to_display_rotation_);

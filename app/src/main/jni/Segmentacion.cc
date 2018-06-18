@@ -1,7 +1,7 @@
 //
 // Created by Adrian on 10/12/2017.
 //
-#include "rgbdsegmentation/Segmentacion.h"
+#include "rgb-depth-sync/Segmentacion.h"
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h) {
 

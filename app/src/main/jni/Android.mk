@@ -57,7 +57,7 @@ LOCAL_SRC_FILES := camera_texture_drawable.cc \
                    color_image.cc \
                    depth_image.cc \
                    jni_interface.cc \
-                   rgbdsegmentation_application.cc \
+                   rgb_depth_sync_application.cc \
                    scene.cc \
                    util.cc \
                    Segmentacion.cc \

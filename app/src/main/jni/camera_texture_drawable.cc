@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <rgbdsegmentation/camera_texture_drawable.h>
+#include <rgb-depth-sync/camera_texture_drawable.h>
 
 namespace {
 const GLfloat kVertices[] = {-1.0, 1.0, 0.0, -1.0, -1.0, 0.0,

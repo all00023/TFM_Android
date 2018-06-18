@@ -17,7 +17,7 @@
 #include "tango-gl/conversions.h"
 #include "tango-gl/camera.h"
 
-#include "rgbdsegmentation/depth_image.h"
+#include "rgb-depth-sync/depth_image.h"
 
 namespace {
     const std::string kPointCloudVertexShader =

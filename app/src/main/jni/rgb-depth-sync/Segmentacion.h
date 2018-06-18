@@ -50,28 +50,23 @@ const float umbralDistanciaComb = 0.4;
 const float umbralCosenoComb = 0.98480775; //10 grados
 const float deltaDepth = 4;
 const float sumaDeltaDepth = 0.10;
+const float umbralSueloAltura = 1;
+const float umbralSueloNormal = 0.9;
 
 const float pi = (float) 3.141592653589793238462643383279502884L;
-const char rojo[3] = {255, 0, 0};
-const char verde[3] = {0, 255, 0};
-const char azulClaro[3] = {0, 255, 255};
-const char azulOscuro[3] = {0, 0, 255};
-const char amarillo[3] = {255, 255, 0};
-const char fucsia[3] = {255, 0, 255};
-const char naranja[3] = {255, 128, 0};
-const char morado[3] = {128, 0, 255};
-const char colores[8][3] = {{255, 0,   0},
-                            {0,   255, 0},
-                            {0,   255, 255},
-                            {0,   0,   255},
-                            {255, 255, 0},
-                            {255, 0,   255},
-                            {255, 128, 0},
-                            {128, 0,   255}};
+const int coloresMaximos = 6;
+const uint16_t blanco =     0x1111111111111111;
+const uint16_t rojo =       0x1111100000000001;
+const uint16_t verde =      0x0000011111000001;
+const uint16_t azul =       0x0000000000111111;
+const uint16_t amarillo =   0x1101111011000001;
+const uint16_t morado =     0x1010000000101001;
+const uint16_t cyan =       0x0000011001110011;
+const uint16_t coloresBasicos[6] = {rojo, verde, azul, amarillo, morado, cyan};
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h);
 
-int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista);
+int procesar(vector<Punto3D> &puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, bool(*f)(Punto3D *, Punto3D *), bool(*f2)(Punto3D *, Punto3D *), double timestampDepth, int w, int h, set<int> &suelo, map<int, int> &relevantes, int modoVista);
 
 void calcularNormales(vector<Punto3D> &puntos, int w, int h, vector<float> integralX, vector<float> integralY, vector<float> integralZ, vector<int> vecinos);
 
@@ -107,7 +102,7 @@ void recalcularParametrosDelPlano(map<int, Plano3D> &planos);
 
 int combinarPlanos(map<int, Plano3D> &planos);
 
-void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo);
+void detectarSuelo(map<int, Plano3D> &planos, set<int> &suelo, double timestampDepth);
 
 void detectarRelevantes(vector<Punto3D> puntos, map<int, Plano3D> &planos, map<int, Elemento3D> &elementos, set<int> &suelo, map<int, int> &relevantes);
 
@@ -141,7 +136,7 @@ void colorearPorProfundidad(vector<Punto3D> &puntos, vector<uint16_t> &imagen);
 
 void colorearPorEtiqueta(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala);
 
-void colorearPorEtiquetaRelevantes(vector<Punto3D> &puntos, vector<uint16_t> &imagen, set<int> &suelo, set<int> &relevantes);
+void colorearPorEtiquetaRelevantes(vector<Punto3D> &puntos, vector<uint16_t> &imagen, int w, int h, int escala, set<int> &suelo, map<int, int> &relevantes);
 
 void colorearPorVecinos(vector<int> &vecinos, vector<uint16_t> &imagen);
 

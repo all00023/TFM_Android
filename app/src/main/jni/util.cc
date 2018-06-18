@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include "rgbdsegmentation/util.h"
+#include "rgb-depth-sync/util.h"
 
 namespace rgb_depth_sync {
 

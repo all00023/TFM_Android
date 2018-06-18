@@ -26,6 +26,8 @@
 
 namespace rgb_depth_sync {
 
+    class SynchronizationApplication;
+
 // DepthImage is a class which projects point cloud on to a color camera's
 // image plane.
     class DepthImage {
@@ -48,7 +50,7 @@ namespace rgb_depth_sync {
         //
         // @param render_point_cloud_buffer: This contains the latest point cloud data
         // that gets projected on to the image plane and fills up the depth_map_buffer
-        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0, const TangoPointCloud *render_point_cloud_buffer, int modoVista);
+        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0, const TangoPointCloud *render_point_cloud_buffer, int modoVista, SynchronizationApplication *app);
 
         // Returns the depth texture id.
         GLuint GetTextureId() const { return texture_id_; }

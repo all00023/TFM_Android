@@ -18,7 +18,7 @@
 
 #include <jni.h>
 
-#include "rgbdsegmentation/rgbdsegmentation_application.h"
+#include "rgb-depth-sync/rgb_depth_sync_application.h"
 
 static rgb_depth_sync::SynchronizationApplication app;
 
@@ -98,7 +98,7 @@ Java_com_projecttango_examples_cpp_rgbdsegmentation_TangoJNINative_startAudio(
 
 ) {
     const char *str = env->GetStringUTFChars(path, 0);
-    app.startAudio(samplerate,buffersize,str,offset,length);
+    //app.startAudio(samplerate,buffersize,str,offset,length);
     env->ReleaseStringUTFChars(path, str);
 }
 
@@ -108,7 +108,7 @@ Java_com_projecttango_examples_cpp_rgbdsegmentation_TangoJNINative_audioOnBackgr
         JNIEnv *__unused env,
         jobject __unused obj
 ) {
-    app.audioOnBackground();
+    //app.audioOnBackground();
 }
 
 // onForeground - Resume audio processing.
@@ -117,7 +117,7 @@ Java_com_projecttango_examples_cpp_rgbdsegmentation_TangoJNINative_audioOnForegr
         JNIEnv *__unused env,
         jobject __unused obj
 ) {
-    app.audioOnForeground();
+    //app.audioOnForeground();
 }
 
 // Cleanup - Free resources.
@@ -126,7 +126,7 @@ Java_com_projecttango_examples_cpp_rgbdsegmentation_TangoJNINative_audioCleanup(
         JNIEnv *__unused env,
         jobject __unused obj
 ) {
-    app.audioCleanUp();
+    //app.audioCleanUp();
 }
 
 #ifdef __cplusplus
