@@ -19,13 +19,13 @@
 using namespace std;
 
 const float multiplicadorTamaño = 10;
-const float multiplicadorPosicion = 4;
-const float multiplicadorDistancia = 4;
+const float multiplicadorPosicion = 6;
+const float multiplicadorDistancia = 6;
 const int nRelevantes = 3;
 const float umbralProf1 = 0.01;
 const float umbralProf2 = 0.005;
-const int minPuntos = 250;
-const int minPuntosDepth = 300;
+const int minPuntos = 100;
+const int minPuntosDepth = 150;
 //const float distNormal = 1; //0 grados
 //const float distNormal = 0.9998477; //1 grados
 //const float distNormal = 0.99939083; //2 grados
@@ -55,13 +55,13 @@ const float umbralSueloNormal = 0.9;
 
 const float pi = (float) 3.141592653589793238462643383279502884L;
 const int coloresMaximos = 6;
-const uint16_t blanco =     0x1111111111111111;
-const uint16_t rojo =       0x1111100000000001;
-const uint16_t verde =      0x0000011111000001;
-const uint16_t azul =       0x0000000000111111;
-const uint16_t amarillo =   0x1101111011000001;
-const uint16_t morado =     0x1010000000101001;
-const uint16_t cyan =       0x0000011001110011;
+const uint16_t blanco =     0b1111111111111111;
+const uint16_t rojo =       0b1111100000000001;
+const uint16_t verde =      0b0000011111000001;
+const uint16_t azul =       0b0000000000111111;
+const uint16_t amarillo =   0b1101111011000001;
+const uint16_t morado =     0b1010000000101001;
+const uint16_t cyan =       0b0000011001110011;
 const uint16_t coloresBasicos[6] = {rojo, verde, azul, amarillo, morado, cyan};
 
 void mapear(vector<Punto3D> &puntos, const TangoPointCloud *nube, TangoCameraIntrinsics intrinsics, int w, int h);

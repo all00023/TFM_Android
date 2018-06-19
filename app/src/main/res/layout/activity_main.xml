@@ -131,7 +131,7 @@
 
 
     <LinearLayout
-        android:layout_width="300dp"
+        android:layout_width="200dp"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_alignParentTop="true"
@@ -139,7 +139,7 @@
 
         <CheckBox
             android:id="@+id/debug_overlay_checkbox"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="2dp"
             android:checked="false"
@@ -148,13 +148,52 @@
 
         <CheckBox
             android:id="@+id/sonido_checkbox"
-            android:layout_width="300dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginLeft="2dp"
             android:layout_marginRight="2dp"
             android:layout_marginTop="2dp"
             android:checked="true"
             android:text="Mute"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="2dp"
+            android:paddingTop="10dp"
+            android:paddingLeft="50dp"
+            android:checked="false"
+            android:text="Sonidos simultáneos"
+            android:textColor="@android:color/white"/>
+
+        <RadioGroup
+            android:id="@+id/grupo_sonidos"
+            android:layout_width="match_parent"
+            android:paddingLeft="50dp"
+            android:layout_height="wrap_content">
+
+            <RadioButton
+                android:id="@+id/radio_sonidos1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1"
+                android:checked="true"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_sonidos2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2"
+                />
+
+            <RadioButton
+                android:id="@+id/radio_sonidos3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3"
+                />
+        </RadioGroup>
 
     </LinearLayout>
 </RelativeLayout>

@@ -199,11 +199,13 @@ public:
         glm::vec4 centro(cx, cy, cz, 1);
         glm::vec4 normal(nx, ny, nz, 1);
 
-        centro = centro * transformacion;
-        normal = normal * transformacion;
+        centro = transformacion * centro;
+        normal = transformacion * normal;
 
         float norma = sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-        normal = normal/norma;
+        normal[0] /= norma;
+        normal[1] /= norma;
+        normal[2] /= norma;
 
         return abs(normal[1]) >= umbralNormal && (alturaRelativaTango - centro[1]) >= umbralAltura ;
 

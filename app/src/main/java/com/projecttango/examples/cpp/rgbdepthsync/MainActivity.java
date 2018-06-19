@@ -18,11 +18,15 @@ package com.projecttango.examples.cpp.rgbdepthsync;
 
 import android.app.Activity;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.ServiceConnection;
+import android.content.res.AssetFileDescriptor;
 import android.graphics.Point;
 import android.hardware.Camera;
 import android.hardware.display.DisplayManager;
+import android.media.AudioManager;
 import android.opengl.GLSurfaceView;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
@@ -33,9 +37,10 @@ import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.RadioGroup;
 import android.widget.SeekBar;
-import android.widget.Toast;
 
 import com.projecttango.examples.cpp.util.TangoInitializationHelper;
+
+import java.io.IOException;
 
 /**
  * Activity that load up the main screen of the app, this is the launcher activity.
@@ -54,8 +59,9 @@ public class MainActivity extends Activity {
 
     private SeekBar mDepthOverlaySeekbar;
     private CheckBox mdebugOverlayCheckbox;
-    private CheckBox mGPUUpsampleCheckbox;
+    private CheckBox mMuteCheckbox;
     private RadioGroup mGrupoModoVision;
+    private RadioGroup mSonidosSimRadioGroup;
 
 
     // Tango Service connection.
@@ -163,6 +169,105 @@ public class MainActivity extends Activity {
         }
     }
 
+    private class SonidosSimListener implements RadioGroup.OnCheckedChangeListener {
+        @Override
+        public void onCheckedChanged(RadioGroup group, int checkedId) {
+
+            int sonidos = 1;
+
+            switch (checkedId){
+                case R.id.radio_sonidos1:
+                    sonidos=1;
+                    break;
+                case R.id.radio_sonidos2:
+                    sonidos=2;
+                    break;
+                case R.id.radio_sonidos3:
+                    sonidos=3;
+                    break;
+                default:
+                    sonidos=1;
+            }
+
+            TangoJNINative.setSonidosSimultaneos(sonidos);
+
+        }
+    }
+
+    protected void comprobarInterfaz(){
+
+        if (mdebugOverlayCheckbox.isChecked()) {
+            float progress = mDepthOverlaySeekbar.getProgress();
+            float max = mDepthOverlaySeekbar.getMax();
+            TangoJNINative.setDepthAlphaValue(progress / max);
+            mDepthOverlaySeekbar.setVisibility(View.VISIBLE);
+        } else {
+            TangoJNINative.setDepthAlphaValue(0.0f);
+            mDepthOverlaySeekbar.setVisibility(View.GONE);
+        }
+        TangoJNINative.setMute(mMuteCheckbox.isChecked());
+
+        int modo = 0;
+        switch (mGrupoModoVision.getCheckedRadioButtonId()){
+            case R.id.radio_puntos_validos:
+                modo=0;
+                break;
+            case R.id.radio_coordenadas:
+                modo=1;
+                break;
+            case R.id.radio_normales:
+                modo=2;
+                break;
+            case R.id.radio_normales_x:
+                modo=3;
+                break;
+            case R.id.radio_normales_y:
+                modo=4;
+                break;
+            case R.id.radio_normales_z:
+                modo=5;
+                break;
+            case R.id.radio_planos_locales:
+                modo=6;
+                break;
+            case R.id.radio_planos_validos:
+                modo=7;
+                break;
+            case R.id.radio_planos_extendidos:
+                modo=8;
+                break;
+            case R.id.radio_planos_unidos:
+                modo=9;
+                break;
+            case R.id.radio_elementos:
+                modo=10;
+                break;
+            case R.id.radio_elementos_relevantes:
+                modo=11;
+                break;
+            default:
+                modo=0;
+        }
+        TangoJNINative.setModoVision(modo);
+
+        int sonidos = 1;
+        switch (mSonidosSimRadioGroup.getCheckedRadioButtonId()){
+            case R.id.radio_sonidos1:
+                sonidos=1;
+                break;
+            case R.id.radio_sonidos2:
+                sonidos=2;
+                break;
+            case R.id.radio_sonidos3:
+                sonidos=3;
+                break;
+            default:
+                sonidos=1;
+        }
+        TangoJNINative.setSonidosSimultaneos(sonidos);
+
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -205,11 +310,14 @@ public class MainActivity extends Activity {
         mdebugOverlayCheckbox = (CheckBox) findViewById(R.id.debug_overlay_checkbox);
         mdebugOverlayCheckbox.setOnCheckedChangeListener(new DebugOverlayCheckboxListener());
 
-        mGPUUpsampleCheckbox = (CheckBox) findViewById(R.id.sonido_checkbox);
-        mGPUUpsampleCheckbox.setOnCheckedChangeListener(new MuteListener());
+        mMuteCheckbox = (CheckBox) findViewById(R.id.sonido_checkbox);
+        mMuteCheckbox.setOnCheckedChangeListener(new MuteListener());
 
         mGrupoModoVision = (RadioGroup) findViewById(R.id.grupo_modo_vision);
         mGrupoModoVision.setOnCheckedChangeListener(new ModoVisionListener());
+
+        mSonidosSimRadioGroup = (RadioGroup) findViewById(R.id.grupo_sonidos);
+        mSonidosSimRadioGroup.setOnCheckedChangeListener(new SonidosSimListener());
 
 
         // OpenGL view where all of the graphics are drawn
@@ -221,6 +329,36 @@ public class MainActivity extends Activity {
         mGLView.setRenderer(mRenderer);
 
         TangoJNINative.onCreate(this);
+        comprobarInterfaz();
+
+        // Get the device's sample rate and buffer size to enable
+        // low-latency Android audio output, if available.
+        String samplerateString = null, buffersizeString = null;
+        if (Build.VERSION.SDK_INT >= 17) {
+            AudioManager audioManager = (AudioManager) this.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager != null) {
+                samplerateString = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
+                buffersizeString = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER);
+            }
+        }
+        if (samplerateString == null) samplerateString = "48000";
+        if (buffersizeString == null) buffersizeString = "480";
+        int samplerate = Integer.parseInt(samplerateString);
+        int buffersize = Integer.parseInt(buffersizeString);
+
+        // Files under res/raw are not zipped, just copied into the APK.
+        // Get the offset and length to know where our file is located.
+        AssetFileDescriptor fd = getResources().openRawResourceFd(R.raw.beep);
+        int fileOffset = (int)fd.getStartOffset();
+        int fileLength = (int)fd.getLength();
+        try {
+            fd.getParcelFileDescriptor().close();
+        } catch (IOException e) {
+            Log.e("PlayerExample", "Close error.");
+        }
+        String path = getPackageResourcePath();         // get path to APK package
+        TangoJNINative.startAudio(samplerate, buffersize, path, fileOffset, fileLength);             // start audio engine
+
     }
 
     @Override
@@ -229,6 +367,8 @@ public class MainActivity extends Activity {
         // surfaceCreated will be called after the GLSurface is created.
         super.onResume();
         mGLView.onResume();
+        comprobarInterfaz();
+        TangoJNINative.audioOnForeground();
         TangoInitializationHelper.bindTangoService(this, mTangoServiceConnection);
     }
 
@@ -237,6 +377,7 @@ public class MainActivity extends Activity {
         super.onPause();
         mGLView.onPause();
         TangoJNINative.onPause();
+        TangoJNINative.audioOnBackground();
         unbindService(mTangoServiceConnection);
     }
 
@@ -251,7 +392,14 @@ public class MainActivity extends Activity {
         Display display = getWindowManager().getDefaultDisplay();
         Camera.CameraInfo colorCameraInfo = new Camera.CameraInfo();
         Camera.getCameraInfo(COLOR_CAMERA_ID, colorCameraInfo);
-
+        comprobarInterfaz();
         TangoJNINative.onDisplayChanged(display.getRotation(), colorCameraInfo.orientation);
     }
+
+    protected void onDestroy() {
+        super.onDestroy();
+        TangoJNINative.audioCleanup();
+    }
+
+
 }

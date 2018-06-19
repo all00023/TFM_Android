@@ -20,6 +20,7 @@
 #include <jni.h>
 #include <vector>
 
+#include <math.h>
 #include <tango_client_api.h>
 #include <tango_support.h>
 #include <rgb-depth-sync/color_image.h>
@@ -27,6 +28,18 @@
 #include <rgb-depth-sync/scene.h>
 #include <rgb-depth-sync/util.h>
 #include <tango-gl/util.h>
+
+#include <AndroidIO/SuperpoweredAndroidAudioIO.h>
+#include <SuperpoweredAdvancedAudioPlayer.h>
+#include <SuperpoweredSpatializer.h>
+#include <SuperpoweredWhoosh.h>
+#include <SuperpoweredMixer.h>
+#include <SuperpoweredSimple.h>
+#include <SuperpoweredCPU.h>
+#include <malloc.h>
+#include <SLES/OpenSLES_AndroidConfiguration.h>
+#include <SLES/OpenSLES.h>
+
 
 namespace rgb_depth_sync {
 
@@ -111,6 +124,19 @@ namespace rgb_depth_sync {
         //
         void OnPointCloudAvailable(const TangoPointCloud *point_cloud);
 
+        //sonido
+        void setSonidosSimultaneos(int sonSim);
+
+        void startAudio(int samplerate, int buffersize, const char *path, int offset, int length);
+
+        void audioOnBackground();
+
+        void audioOnForeground();
+
+        void audioCleanUp();
+
+        void aignarSonidoAElementos(Plano3D *p1, Plano3D *p2, Plano3D *p3, int tamImagen);
+
     private:
         // Setup the configuration file for the Tango Service. .
         void TangoSetupConfig();
@@ -146,7 +172,6 @@ namespace rgb_depth_sync {
         // writing of the point cloud data.
         TangoSupport_PointCloudManager *point_cloud_manager_;
 
-        bool mute;
         int modoVision;
 
         bool is_service_connected_;

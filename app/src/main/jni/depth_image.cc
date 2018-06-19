@@ -175,7 +175,7 @@ namespace rgb_depth_sync {
             else if (modoVista >= 11) {
                 //colorearRelevantes
 
-                //("Relevantes");
+//                ("Relevantes");
 //                map<int, int>::iterator iter = etiquetasRelevantes.begin();
 //                while (iter != etiquetasRelevantes.end()) {
 //                    LOGE("%i -> %i", iter->first, iter->second);
