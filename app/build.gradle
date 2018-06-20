@@ -5,7 +5,7 @@ android {
         config {
             keyAlias 'key0'
             keyPassword 'tfmtfm'
-            storeFile file('C:/Users/Adrian/TFM.jks')
+            storeFile file('C:/Users/adria/Desktop/TFM/Examples/tango-examples-c/Prueba_cpp/TFM.jks')
             storePassword 'tfmtfm'
         }
     }

@@ -24,11 +24,22 @@
 #include <vector>
 #include "rgb-depth-sync/Segmentacion.h"
 
+
+#include <AndroidIO/SuperpoweredAndroidAudioIO.h>
+#include <SuperpoweredAdvancedAudioPlayer.h>
+#include <SuperpoweredSpatializer.h>
+#include <SuperpoweredWhoosh.h>
+#include <SuperpoweredMixer.h>
+#include <SuperpoweredSimple.h>
+#include <SuperpoweredCPU.h>
+#include <malloc.h>
+#include <SLES/OpenSLES_AndroidConfiguration.h>
+#include <SLES/OpenSLES.h>
+
+
 namespace rgb_depth_sync {
 
-    class SynchronizationApplication;
-
-// DepthImage is a class which projects point cloud on to a color camera's
+    // DepthImage is a class which projects point cloud on to a color camera's
 // image plane.
     class DepthImage {
     public:
@@ -50,7 +61,7 @@ namespace rgb_depth_sync {
         //
         // @param render_point_cloud_buffer: This contains the latest point cloud data
         // that gets projected on to the image plane and fills up the depth_map_buffer
-        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0, const TangoPointCloud *render_point_cloud_buffer, int modoVista, SynchronizationApplication *app);
+        void UpdateAndUpsampleDepth(const glm::mat4 &color_t1_T_depth_t0, const TangoPointCloud *render_point_cloud_buffer, int modoVista);
 
         // Returns the depth texture id.
         GLuint GetTextureId() const { return texture_id_; }
@@ -64,6 +75,21 @@ namespace rgb_depth_sync {
         // The intrinsics are used to project the pointcloud to depth image and
         // and undistort the image to the right size.
         void SetDepthCameraIntrinsics(TangoCameraIntrinsics intrinsics);
+
+        //Sonido
+        void setMute(bool on);
+
+        void setSonidosSimultaneos(int sonSim);
+
+        void startAudio(int samplerate, int buffersize, const char *path, int offset, int length);
+
+        void audioOnBackground();
+
+        void audioOnForeground();
+
+        void audioCleanUp();
+
+        void asignarSonidoAElementos(Elemento3D *p1, Elemento3D *p2, Elemento3D *p3, int tamImagen);
 
     private:
         // Initialize the OpenGL structures needed for the CPU texture generation.
