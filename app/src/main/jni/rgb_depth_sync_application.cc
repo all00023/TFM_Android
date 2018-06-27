@@ -319,7 +319,7 @@ namespace rgb_depth_sync {
 
 
         depth_image_.UpdateAndUpsampleDepth(color_image_t1_T_depth_image_t0,
-                                            pointcloud_buffer, modoVision, this);
+                                            pointcloud_buffer, modoVision);
 
         main_scene_.Render(color_image_.GetTextureId(), depth_image_.GetTextureId(),
                            color_camera_to_display_rotation_);
@@ -338,303 +338,31 @@ namespace rgb_depth_sync {
                         display_rotation, color_camera_rotation);
     }
 
-    //Sonido
-    static SuperpoweredAndroidAudioIO *audioIO;
-    static SuperpoweredWhoosh *wh;
-    static SuperpoweredStereoMixer *mixer;
-    static float *floatBufferMixer;
-    static bool mute = true;
-    static int sonidosSim = 1;
+    void SynchronizationApplication::SetMute(bool on) {
 
-    static SuperpoweredAdvancedAudioPlayer *player1;
-    static SuperpoweredSpatializer *spatializer1;
-    static float *floatBuffer1;
-    static bool valido1 = false;
-    static float azimuth1 = 0;
-    static float elevation1 = 0;
-    static float pitch1 = 0;
-    static float tempo1 = 1;
+        depth_image_.setMute(on);
 
-    static SuperpoweredAdvancedAudioPlayer *player2;
-    static SuperpoweredSpatializer *spatializer2;
-    static float *floatBuffer2;
-    static bool valido2 = false;
-    static float azimuth2 = 0;
-    static float elevation2 = 0;
-    static float pitch2 = 0;
-    static float tempo2 = 1;
-
-    static SuperpoweredAdvancedAudioPlayer *player3;
-    static SuperpoweredSpatializer *spatializer3;
-    static float *floatBuffer3;
-    static bool valido3 = false;
-    static float azimuth3 = 0;
-    static float elevation3 = 0;
-    static float pitch3 = 0;
-    static float tempo3 = 1;
-
-    // This is called periodically by the audio engine.
-    static bool audioProcessing(
-            void *__unused clientdata, // custom pointer
-            short int *audio,           // buffer of interleaved samples
-            int numberOfFrames,         // number of frames to process
-            int __unused samplerate     // sampling rate
-    ) {
-
-        if (mute)
-            return false;
-
-        valido1 = true;
-        azimuth1 = 330;
-        elevation1 = 0;
-        pitch1 = -12;
-        tempo1 = 3;
-
-        if (!valido1 && !valido2 && !valido3)
-            return false;
-
-        float *inputs[4] = {NULL, NULL, NULL, NULL};
-        float *outputs[2] = {floatBufferMixer, NULL};
-        float inputLevels[8] = {1, 1, 1, 1, 1, 1, 1, 1};
-        float outputLevels[2] = {1, 1};
-        bool algunValido = false; //No podemos asegurar que las variables sean threadsafe, asi se evita que cambien los validos
-
-        if (valido1 && sonidosSim >= 1) {
-
-            LOGE("1");
-            player1->setTempo(tempo1, true);
-            player1->setPitchShift(pitch1);
-            spatializer1->azimuth = azimuth1;
-            spatializer1->elevation = elevation1;
-
-            if (!player1->process(floatBuffer1, false, (unsigned int) numberOfFrames))
-                return false;
-            //wh->process(floatBuffer1,floatBuffer1,(unsigned int) numberOfFrames);
-            if (!spatializer1->process(floatBuffer1, NULL, floatBuffer1, NULL, (unsigned int) numberOfFrames, true))
-                return false;
-
-
-            inputs[0] = floatBuffer1;
-            algunValido = true;
-        }
-
-        if (valido2 && sonidosSim >= 2) {
-
-            LOGE("2");
-            player2->setTempo(tempo2, true);
-            player2->setPitchShift(pitch2);
-            spatializer2->azimuth = azimuth2;
-            spatializer2->elevation = elevation2;
-
-            if (!player2->process(floatBuffer2, false, (unsigned int) numberOfFrames))
-                return false;
-            if (!spatializer2->process(floatBuffer2, NULL, floatBuffer2, NULL, (unsigned int) numberOfFrames, true))
-                return false;
-
-            inputs[1] = floatBuffer2;
-            algunValido = true;
-
-        }
-
-        if (valido3 && sonidosSim >= 3) {
-
-            player3->setTempo(tempo3, true);
-            player3->setPitchShift(pitch3);
-            spatializer3->azimuth = azimuth3;
-            spatializer3->elevation = elevation3;
-
-            if (!player3->process(floatBuffer3, false, (unsigned int) numberOfFrames))
-                return false;
-            if (!spatializer3->process(floatBuffer3, NULL, floatBuffer3, NULL, (unsigned int) numberOfFrames, true))
-                return false;
-
-            inputs[2] = floatBuffer3;
-            algunValido = true;
-
-        }
-
-        if (algunValido) {
-            mixer->process(inputs, outputs, inputLevels, outputLevels, NULL, NULL, (unsigned int) numberOfFrames);
-            SuperpoweredFloatToShortInt(floatBufferMixer, audio, (unsigned int) numberOfFrames);
-
-            LOGE("3");
-
-            return true;
-        } else {
-            return false;
-        }
-
-    }
-
-    // Called by the player.
-    static void playerEventCallback1(
-            void *__unused clientData,
-            SuperpoweredAdvancedAudioPlayerEvent event,
-            void *value
-    ) {
-        switch (event) {
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadSuccess:
-                LOGE("Cargado el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadError:
-                LOGE("Error al cargar el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_EOF:
-                player1->seek(0);    // loop track
-                break;
-            default:;
-        };
-    }
-
-    // Called by the player.
-    static void playerEventCallback2(
-            void *__unused clientData,
-            SuperpoweredAdvancedAudioPlayerEvent event,
-            void *value
-    ) {
-        switch (event) {
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadSuccess:
-                LOGE("Cargado el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadError:
-                LOGE("Error al cargar el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_EOF:
-                player2->seek(0);    // loop track
-                break;
-            default:;
-        };
-    }
-
-    // Called by the player.
-    static void playerEventCallback3(
-            void *__unused clientData,
-            SuperpoweredAdvancedAudioPlayerEvent event,
-            void *value
-    ) {
-        switch (event) {
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadSuccess:
-                LOGE("Cargado el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_LoadError:
-                LOGE("Error al cargar el archivo de audio");
-                break;
-            case SuperpoweredAdvancedAudioPlayerEvent_EOF:
-                player3->seek(0);    // loop track
-                break;
-            default:;
-        };
-    }
-
-    void SynchronizationApplication::startAudio(int samplerate, int buffersize, const char *path, int offset, int length) {
-
-        // Allocate audio buffer.
-        floatBuffer1 = (float *) malloc(sizeof(float) * 2 * buffersize);
-        floatBuffer2 = (float *) malloc(sizeof(float) * 2 * buffersize);
-        floatBuffer3 = (float *) malloc(sizeof(float) * 2 * buffersize);
-        floatBufferMixer = (float *) malloc(sizeof(float) * 2 * buffersize);
-
-        // Initialize player and pass callback function.
-        player1 = new SuperpoweredAdvancedAudioPlayer(
-                NULL,                           // clientData
-                playerEventCallback1,            // callback function
-                (unsigned int) samplerate,       // sampling rate
-                0                               // cachedPointCount
-        );
-        player2 = new SuperpoweredAdvancedAudioPlayer(
-                NULL,                           // clientData
-                playerEventCallback2,            // callback function
-                (unsigned int) samplerate,       // sampling rate
-                0                               // cachedPointCount
-        );
-        player3 = new SuperpoweredAdvancedAudioPlayer(
-                NULL,                           // clientData
-                playerEventCallback3,            // callback function
-                (unsigned int) samplerate,       // sampling rate
-                0                               // cachedPointCount
-        );
-
-        // Initialize audio with audio callback function.
-        audioIO = new SuperpoweredAndroidAudioIO(
-                (unsigned int) samplerate,                     // sampling rate
-                buffersize,                     // buffer size
-                false,                          // enableInput
-                true,                           // enableOutput
-                audioProcessing,                // process callback function
-                NULL,                           // clientData
-                -1,                             // inputStreamType (-1 = default)
-                SL_ANDROID_STREAM_MEDIA,        // outputStreamType (-1 = default)
-                buffersize * 2                  // latencySamples
-        );
-
-        mixer = new SuperpoweredStereoMixer();
-        wh = new SuperpoweredWhoosh((unsigned int) samplerate);
-        wh->setFrequency(800);
-        wh->enable(true);
-
-
-        spatializer1 = new SuperpoweredSpatializer((unsigned int) samplerate);
-        player1->open(path, offset, length);
-        player1->play(false);
-
-        spatializer2 = new SuperpoweredSpatializer((unsigned int) samplerate);
-        player2->open(path, offset, length);
-        player2->play(true);
-
-        spatializer3 = new SuperpoweredSpatializer((unsigned int) samplerate);
-        player3->open(path, offset, length);
-        player3->play(true);
-
-    }
-
-    void SynchronizationApplication::SetMute(bool on) { mute = on; }
-
-    void SynchronizationApplication::audioOnBackground() {
-        audioIO->onBackground();
-        valido1 = false;
-        valido2 = false;
-        valido3 = false;
-    }
-
-    void SynchronizationApplication::audioOnForeground() {
-        audioIO->onForeground();
-    }
-
-    void SynchronizationApplication::audioCleanUp() {
-        delete audioIO;
-        delete mixer;
-        free(floatBufferMixer);
-
-        delete player1;
-        delete spatializer1;
-        free(floatBuffer1);
-
-        delete player2;
-        delete spatializer2;
-        free(floatBuffer2);
-
-        delete player3;
-        delete spatializer3;
-        free(floatBuffer3);
     }
 
     void SynchronizationApplication::setSonidosSimultaneos(int sonSim) {
-        sonidosSim = sonSim;
+        depth_image_.setSonidosSimultaneos(sonSim);
     }
 
-    void SynchronizationApplication::aignarSonidoAElementos(Plano3D *p1, Plano3D *p2, Plano3D *p3, int tamImagen) {
-
-        if (p1 != NULL) {
-            valido1 = true;
-
-            azimuth1 = atan2(p1->getCX(), p1->getCZ()) * 180.0 / pi;
-            elevation1 = atan2(p1->getCY(), p1->getCZ()) * 180.0 / pi;
-
-
-
-        }
-
+    void SynchronizationApplication::startAudio(int samplerate, int buffersize, const char *path,
+                                                int offset, int length) {
+        depth_image_.startAudio(samplerate, buffersize, path, offset, length);
     }
 
+    void SynchronizationApplication::audioOnBackground() {
+        depth_image_.audioOnBackground();
+    }
+
+    void SynchronizationApplication::audioOnForeground() {
+        depth_image_.audioOnForeground();
+    }
+
+    void SynchronizationApplication::audioCleanUp() {
+        depth_image_.audioCleanUp();
+    }
 
 }  // namespace rgb_depth_sync

@@ -29,20 +29,10 @@
 #include <rgb-depth-sync/util.h>
 #include <tango-gl/util.h>
 
-#include <AndroidIO/SuperpoweredAndroidAudioIO.h>
-#include <SuperpoweredAdvancedAudioPlayer.h>
-#include <SuperpoweredSpatializer.h>
-#include <SuperpoweredWhoosh.h>
-#include <SuperpoweredMixer.h>
-#include <SuperpoweredSimple.h>
-#include <SuperpoweredCPU.h>
-#include <malloc.h>
-#include <SLES/OpenSLES_AndroidConfiguration.h>
-#include <SLES/OpenSLES.h>
-
 
 namespace rgb_depth_sync {
 
+    using rgb_depth_sync::DepthImage;
 // This thread safe class is the main application for Synchronization.
 // It can be instantiated in the JNI layer and use to pass information back and
 // forth between Java. The class also manages the application's lifecycle and
@@ -134,8 +124,6 @@ namespace rgb_depth_sync {
         void audioOnForeground();
 
         void audioCleanUp();
-
-        void aignarSonidoAElementos(Plano3D *p1, Plano3D *p2, Plano3D *p3, int tamImagen);
 
     private:
         // Setup the configuration file for the Tango Service. .
