@@ -312,6 +312,7 @@ namespace rgb_depth_sync {
 
 
         if (valido1 && sonidosSim >= 1) {
+
             player1->setTempo(tempo1, true);
             player1->setPitchShift(pitch1);
             spatializer1->azimuth = azimuth1;
@@ -345,6 +346,7 @@ namespace rgb_depth_sync {
             algunValido = true;
 
         }
+
         if (valido3 && sonidosSim >= 3) {
 
             player3->setTempo(tempo3, true);
@@ -364,11 +366,11 @@ namespace rgb_depth_sync {
         }
 
         if (algunValido) {
+
             mixer->process(inputs, outputs, inputLevels, outputLevels, NULL, NULL,
                            (unsigned int) numberOfFrames);
 
             SuperpoweredFloatToShortInt(floatBufferMixer, audio, (unsigned int) numberOfFrames);
-
 
             return true;
         } else {
@@ -567,11 +569,10 @@ namespace rgb_depth_sync {
                                                                    1.0)) * preRadToGrad;
             elevation1 = p1->getCY() < 0 ? 360 - elevation1 : elevation1;
 
-            tempo1 = invertirYModificarRango(p1->getCZ(), distanciaMinima, tempoMaximo,
-                                             preEscalaTempo);
+            tempo1 = invertirYModificarRango(p1->getCZ(), distanciaMinima, tempoMaximo, preEscalaTempo);
             tempo1 = tempo1 > 3 ? 3 : tempo1;
-            pitch1 = invertirYModificarRango(p1->getNumeroPuntos(), tamMinimo, pitchMaximo,
-                                             preEscalaPitch) - pitchDiff;
+            pitch1 = invertirYModificarRango(p1->getNumeroPuntos(), tamMinimo, pitchMaximo, preEscalaPitch) - pitchDiff;
+
         }
 
         if (p2 == NULL) {
@@ -616,8 +617,8 @@ namespace rgb_depth_sync {
             tempo3 = invertirYModificarRango(p3->getCZ(), distanciaMinima, tempoMaximo,
                                              preEscalaTempo);
             tempo3 = tempo3 > 3 ? 3 : tempo3;
-            pitch3 = invertirYModificarRango(p3->getNumeroPuntos(), tamMinimo, pitchMaximo,
-                                             preEscalaPitch) - pitchDiff;
+            pitch3 = invertirYModificarRango(p3->getNumeroPuntos(), tamMinimo, pitchMaximo, 
+											 preEscalaPitch) - pitchDiff;
         }
 
     }
